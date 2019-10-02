@@ -3,8 +3,8 @@ title: "Cannabis consumption prediction from demographics and personality"
 author: "Charles Mégnin"
 date: "10/2/2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 subtitle: HarvardX PH125.9x Data Science Capstone
 ---
 
@@ -20,7 +20,7 @@ knitr::opts_chunk$set(
 	echo = FALSE,
 	message = FALSE,
 	warning = TRUE,
-	cache = TRUE,
+	cache = FALSE,
 	tidy = TRUE
 )
 ```
@@ -34,6 +34,8 @@ if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.
 if(!require(mlbench)) install.packages("mlbench", repos = "http://cran.us.r-project.org")
 if(!require(grid)) install.packages("grid", repos = "http://cran.us.r-project.org")
 if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+if(!require(ggthemes)) install.packages("ggthemes", repos = "http://cran.us.r-project.org")
+if(!require(reshape2)) install.packages("reshape2", repos = "http://cran.us.r-project.org")
 ```
 
 ```{r load data, message=TRUE, warning=TRUE}
@@ -86,7 +88,7 @@ The working dataset in this study therefore consists of one Class (Cannabis cons
 
 ## - Key steps
 
-We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluating the goodness of fit of our model. it being a classificaiton problem, we use the accuracy as the metric for fit with the test set. 
+We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluating the goodness of fit of our model. it being a classification problem, we use the accuracy as the metric for fit with the test set. 
 
 This report consists of two main sections:
 
@@ -94,6 +96,7 @@ This report consists of two main sections:
 
 + In the second part, we move on to the modeling phase.
 
+\newpage 
 # Analysis
 
 ## A: Data engineering and checks
@@ -113,6 +116,7 @@ df.raw[,'Used'] <- factor(as.character(df.raw[,'Used']))
 There are `r sum(anyNA(df.raw))` NAs in the dataset.
 
 We then partition the data between training (80%) and test sets (20%) preserving the distribution of the Cannabis class.
+
 ```{r data partition, message=FALSE, paged.print=FALSE}
 set.seed(15)
 trainIndex <- createDataPartition(df.raw$Cannabis, 
@@ -124,9 +128,522 @@ df.train <- df.raw[ trainIndex,]
 df.test  <- df.raw[-trainIndex,]
 ```
 
+\newpage
+## B: Data exploration
 
-## B: Data exploration / vizualisation
+```{r plot parameters, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Global plot parameters ####
+fill <- 'skyblue3'
+color <- 'grey'
+fill_no <- "#af8dc3"
+fill_yes <- "#7fbf7b"
+used_colors <- c(fill_no, fill_yes) # No/Yes
+alpha <- 0.4 # alpha-blending
+```
 
+### Feature correlation analysis
+
+```{r correlation matrix utilities, message=FALSE, paged.print=FALSE}
+# *** Utilities for correlation matrix plot
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+# Reorder correlation matrix as a function of distance bw features
+reorder_cormat <- function(cormat){
+  # Use correlation between variables as distance
+  dd <- as.dist((1-cormat)/2)
+  hc <- hclust(dd)
+  cormat <- cormat[hc$order, hc$order]
+}
+# *** End utilities ***
+
+corr_plot <- function(df, title) { # *** Main routine ***
+  cormat <- round(cor(df, method = 'pearson'), 2)
+  #cormat <- reorder_cormat(cormat)
+  upper_tri <- get_upper_tri(cormat)
+  upper_tri
+  melted_cormat <- melt(upper_tri, na.rm = TRUE)
+  # Create the plot
+  ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(low = "#998ec3", high = "#f1a340", mid = "#f7f7f7",
+                         midpoint = 0., limit = c(-1,1), space = "Lab",
+                         name="Pearson\nCorrelation") +
+    theme_minimal()+ # minimal theme
+    theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                     size = 12, hjust = 1))+
+    theme(axis.text.y = element_text(vjust = 0,
+                                     size = 12, hjust = 1))+
+    coord_fixed() +
+    ggtitle(title) +
+    theme(
+      plot.title = element_text(size = 16, face = 'bold'),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      #panel.grid.major = element_blank(),
+      panel.border = element_blank(),
+      panel.background = element_blank(),
+      axis.ticks = element_blank(),
+      legend.justification = c(1, 0),
+      legend.position = c(0.55, 0.725),
+      legend.direction = "horizontal") +
+      guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                                    title.position = "top", title.hjust = 0.5))
+  #Print heatmap
+  print(ggheatmap)
+  return(cormat)
+}
+```
+
+We examine whether any redundancies are present among the predictors:
+
+```{r correlation among features, message=FALSE, paged.print=FALSE}
+df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
+                              Nscore, Escore, Oscore, Ascore, Cscore, 
+                              Impulsive, SS)
+cormat <- as_tibble(corr_plot(df.cor, "Feature correlation"))
+cortest <- cor.test(df.cor$SS, df.cor$Impulsive)
+rm(df.cor)
+```
+
+Most features are weakly inter-correlated, the strongest correlation is between Impulsivity and Sensation-seeking (`r cortest$estimate` correlation, p-value = `r if(cortest$p.value < .000001) 0 else cortest$p.value`). It is safe to use all features for modeling purposes.
+
+\newpage
+### Data exploration
+
+#### Overall cannabis consumption
+
+```{r parameters, message=FALSE, paged.print=FALSE}
+users <- (df.train %>% filter(Used == 1) %>% dim())[1]
+non_users <- (df.train %>% filter(Used == 0) %>% dim())[1]
+```
+The training set of `r dim(df.train)[1]` participants (left plot) is binned into `r users` users and `r non_users` non-users. The original data is shown on the right.
+
+```{r overall cannabis, message=FALSE, warning=FALSE, paged.print=FALSE}
+freq_labels <- c("Never used", "> a decade ago", "Last decade", 
+                 "Last year", "Last month", "Last week", 
+                 "Last day")
+
+p1 <- df.train %>% 
+  ggplot(aes(Cannabis)) + 
+  geom_histogram(stat = "count", 
+                 aes(fill = I(fill), 
+                     color = I(color))) +
+  labs(x = "", 
+       y = "") +
+  scale_x_discrete(labels = freq_labels) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+
+p2 <- df.train %>% 
+  ggplot(aes(Used)) + 
+  geom_histogram(stat = "count", 
+                 aes(fill = I(fill), 
+                     color = I(color))) +
+  labs(x = "", y = "") +
+  scale_x_discrete(labels = c("Never used", "Used"))
+
+top <- paste("Frequency of cannabis use\n", "Training set:", as.character(dim(df.train)[1]), "participants")
+
+grid.arrange(p2, p1, 
+             nrow = 1,
+             top = top,
+             left = "Count"
+)
+
+```
+
+\newpage
+#### Demographic analysis
+```{r age analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+df.age <- df.train %>% group_by(Age) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Age) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "0") %>% 
+  select(n)
+df.age <- df.age %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.age <- c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")
+
+plotAgeProp <- df.age %>% 
+  ggplot(aes(x = factor(Age), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", 
+           aes(fill = I(fill_no), 
+               color = I(color))) +
+  scale_x_discrete(labels = labels.age)  +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+  labs(title = "Age group",
+       x = "Years old",
+       y = "") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1))
+
+plotAge <- df.train %>% 
+            ggplot(aes(factor(Age))) + 
+            geom_histogram(stat = "count", 
+                           position = "dodge",
+                           aes(fill = Used)) +
+            scale_x_discrete(labels = labels.age) +
+            theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+            labs(title = "Age group",
+                 x = "Years old",
+                 y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) 
+```
+```{r gender analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.gender <- df.train %>% group_by(Gender) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Gender) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "0") %>% 
+  select(n)
+df.gender <- df.gender %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels <- c("Male", "Female")
+
+plotGenderProp <- df.gender %>% 
+  ggplot(aes(x = factor(Gender), y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  scale_x_discrete(labels = labels)  +
+  labs(title = "Gender",
+       x = "",
+       y = "") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1))
+
+plotGender <- df.train %>% 
+  ggplot(aes(factor(Gender))) + 
+  geom_histogram(stat = "count",  
+                 position = "dodge",
+                 aes(fill = Used)) +
+  scale_x_discrete(labels = labels) +
+  labs(title = "Gender",
+       x = "",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], "1" = used_colors[2]), 
+                    labels = c("No", "Yes")) +
+  guides(fill = guide_legend(label.position = "left", 
+                             label.hjust = 1))
+```
+```{r edu analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.edu <- df.train %>% group_by(Education) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Education) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "0") %>% 
+  select(n)
+df.edu <- df.edu %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.edu <- c("Left school before 16 yo", 
+            "Left school at 16 yo", 
+            "Left school at 17 yo", 
+            "Left school at 18 yo", 
+            "Some college/univ.", 
+            "Prof. certif./diploma",
+            "Univ. degree", 
+            "Masters degree",
+            "Doctorate degree")
+
+levels.edu <- c(-2.43591, -1.73790, -1.43719,
+            -1.22751, -0.61113, -0.05921,
+            0.45468, 1.16365, 1.98437)
+
+plotEduProp <- df.edu %>% 
+  ggplot(aes(x = factor(Education), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Education",
+       x = "",
+       y = "") +
+  aes(x=reorder(factor(Education, 
+                       labels = labels.edu), 
+                -prop_no)) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.title.x=element_blank())
+
+plotEdu <- df.train %>% 
+  ggplot(aes(factor(Education))) + 
+  geom_histogram(stat = "count", 
+                 position = "dodge",
+                 aes(fill = Used)) +
+  scale_x_discrete(labels = labels.edu) +
+  labs(title = "Level of education",
+       x = "",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+```{r country analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.country <- df.train %>% group_by(Country) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Country) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "1") %>% # Handle the case of "New Zealand"
+  select(n) %>% 
+  mutate(n = df.country$n - n)
+df.country <- df.country %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.ctry <- c("USA", "New Zealand", "Other", "Australia", 
+            "Republic of Ireland", "Canada", "UK")
+
+levels.ctry <- c(-0.57009, -0.46841, -0.28519, -0.09765, 
+            0.21128, 0.24923, 0.96082)
+
+plotCountryProp <- df.country %>% 
+  ggplot(aes(x = factor(Country, 
+                        levels = levels.ctry, 
+                        labels = labels.ctry), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Country",
+       x = "",
+       y = "") +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.title.x=element_blank())
+
+plotCountry <- df.train %>% 
+  ggplot(aes(factor(Country, 
+                    labels = labels.ctry, 
+                    levels = levels.ctry))) + 
+  geom_histogram(stat = "count", 
+                 position = "dodge",
+                 aes(fill = Used)) +
+  labs(title = "Country",
+       x = "",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+```{r ethnicity analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.eth <- df.train %>% group_by(Ethnicity) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Ethnicity) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "1") %>% # Handle the case of "Mixed-Black/Asian"
+  select(n) %>% 
+  mutate(n = df.eth$n - n)
+df.eth <- df.eth %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.eth <- c("Black", "Asian", "White", "Mixed-White/Black", 
+            "Other","Mixed-White/Asian", "Mixed-Black/Asian")
+
+levels.eth <- c(-1.10702, -0.50212, -0.31685, -0.22166, 
+            0.11440, 0.12600, 1.90725)
+
+plotEthProp <- df.eth %>% 
+  ggplot(aes(x = factor(Ethnicity, 
+                        levels = levels.eth, 
+                        labels = labels.eth), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Ethnicity",
+       x = "",
+       y = "") +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.title.x=element_blank())
+
+plotEth <- df.train %>% 
+  ggplot(aes(factor(Ethnicity, 
+                    labels = labels.eth, 
+                    levels = levels.eth))) + 
+  geom_histogram(stat = "count", position = "dodge",
+                 aes(fill = Used)) +
+  labs(title = "Ethnicity",
+       x = "",
+       y = "")  +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  scale_y_sqrt()
+```
+```{r demographic distribution plot, message=FALSE, paged.print=FALSE}
+# Distribution:
+grid.arrange(plotCountry, plotEdu, plotEth,
+             plotAge, plotGender,
+             nrow = 2,
+             top = "Use of cannabis in training set by:",
+             left = "Counts")
+
+# Free up memory
+rm(plotCountry, plotEdu, plotEth, plotAge, plotGender)
+```
+```{r demographic proportion plot, message=FALSE, paged.print=FALSE}
+# Proportions:
+grid.arrange(plotCountryProp, plotEduProp, plotEthProp,
+             plotAgeProp, plotGenderProp,
+             nrow = 2,
+             top = "Proportion of cannabis non-users in training set by:",
+             left = "Proportion")
+
+# Free up memory
+rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp, plotGenderProp)
+```
+
+\newpage
+#### Personality analysis
+```{r neuroticism, message=FALSE, paged.print=FALSE}
+# Neuroticism (N-score) plot
+NscoreDensityPlot <- df.train %>% 
+  ggplot(aes(x = Nscore, 
+             fill = Used, 
+             color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Neuroticism",
+       x = "N-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))
+```
+```{r extraversion, message=FALSE, paged.print=FALSE}
+# Extraversion (E-score) plot
+EscoreDensityPlot <- df.train %>% 
+  ggplot(aes(x = Escore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Extraversion",
+       x = "E-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))
+```
+```{r openness to experience, message=FALSE, paged.print=FALSE}
+# Openness to experience (O-score) plot 
+OscoreDensityPlot <- df.train %>% 
+  ggplot(aes(x = Oscore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Openness to exp.",
+       x = "O-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))
+```
+```{r agreeableness, message=FALSE, paged.print=FALSE}
+# Agreeableness (A-score) plot]
+AscoreDensityPlot <- df.train %>% 
+  ggplot(aes(x = Ascore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Agreeableness",
+       x = "A-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))
+```
+```{r conscientiousness, message=FALSE, paged.print=FALSE}
+# Conscientiousness (C-score) plot
+CscoreDensityPlot <- df.train %>% 
+  ggplot(aes(x = Cscore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Conscientiousness",
+       x = "C-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5)) 
+
+```
+```{r impulsiveness, message=FALSE, paged.print=FALSE}
+# 6. Impulsiveness plot
+ImpDensityPlot <- df.train %>% 
+  ggplot(aes(x = Impulsive, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Impulsivity",
+       x = "Impulsivity score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5)) 
+```
+```{r SS, message=FALSE, paged.print=FALSE}
+# Sensation-seeking plot
+SSDensityPlot <- df.train %>% 
+  ggplot(aes(x = SS, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Seeking sensations",
+                     x = "Sensation-seeking score",
+                     y = "") +
+  scale_fill_manual(name = "Used?", 
+                     values = c("0" = used_colors[1], "1" = used_colors[2]), 
+                     labels = c("No", "Yes")) +
+  scale_y_continuous(limits = c(0, .5)) 
+```
+
+```{r personality summary plot, message=FALSE, paged.print=FALSE}
+grid.arrange(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot,
+             AscoreDensityPlot, CscoreDensityPlot, ImpDensityPlot,
+             SSDensityPlot,
+             nrow = 3,
+             top = "Cannabis use as a fuction of:",
+             left = "Density"
+)
+
+# Free-up memory
+rm(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot, AscoreDensityPlot,
+   CscoreDensityPlot, ImpDensityPlot, SSDensityPlot)
+```
+
+The density plots show some measure of difference between users and non-users particularly as it relates to openness to experience, agreeableness, conscientiopusness, impuslivity and seeeking sensations. However, Neuroticism and extraversion do not seem to play much of a role. We will examine in the modeling section whether that is indee the case.
+
+\newpage
 ## C: Modeling
 
 # Results

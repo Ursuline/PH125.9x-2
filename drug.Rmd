@@ -1,0 +1,134 @@
+---
+title: "Cannabis consumption prediction from demographics and personality"
+author: "Charles Mégnin"
+date: "10/2/2019"
+output:
+  pdf_document: default
+  html_document: default
+subtitle: HarvardX PH125.9x Data Science Capstone
+---
+
+<!-- The report should include the following at a minimum: -->
+
+<!-- an introduction/overview/executive summary section that describes the dataset and summarizes the goal of the project and key steps that were performed; -->
+<!-- a methods/analysis section that explains the process and techniques used, such as data cleaning, data exploration and visualization, any insights gained, and your modeling approach; -->
+<!-- a results section that presents the modeling results and discusses the model performance; and -->
+<!-- a conclusion section that gives a brief summary of the report, its limitations, and future work (the last two are recommended but not necessary). -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = TRUE,
+	cache = TRUE,
+	tidy = TRUE
+)
+```
+
+```{r load R packages}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(dplyr)) install.packages("dplyr", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(readr)) install.packages("readr", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(mlbench)) install.packages("mlbench", repos = "http://cran.us.r-project.org")
+if(!require(grid)) install.packages("grid", repos = "http://cran.us.r-project.org")
+if(!require(gridExtra)) install.packages("gridExtra", repos = "http://cran.us.r-project.org")
+```
+
+```{r load data, message=TRUE, warning=TRUE}
+# Remote / local flag
+remote <- 1
+
+if(remote == 1) { # Load data file from github repository
+  df.raw <- read.table("https://raw.githubusercontent.com/Ursuline/PH125.9x-2/master/data/drug_consumption.csv", 
+                      header = FALSE,
+                      sep = ",")
+} else { # Load local copy
+df.raw <- read.csv("./data/drug_consumption.csv", header = FALSE)
+}
+# Add a header row
+names(df.raw) <- c("Id", "Age", "Gender", "Education", "Country", "Ethnicity",
+                   "Nscore", "Escore", "Oscore", "Ascore", "Cscore", "Impulsive", "SS",
+                   "Alcohol", "Amphet", "Amyl", "Benzos", "Caff", "Cannabis", "Choc", 
+                   "Coke", "Crack", "Ecstasy", "Heroin", "Ketamine","Legalh", "LSD", 
+                   "Meth", "Mushrooms", "Nicotine", "Semer", "VSA")
+```
+
+# Executive Summary
+
+## - Goal of project
+
+The goal of this project is to assess whether an individual's consumption of cannabis can be predicted from a combination of demographic and personality data.
+
+## - Dataset description
+
+The original dataset is found on the [UCI machine learning repository](https://archive.ics.uci.edu/ml/datasets/Drug+consumption+%28quantified%29).
+It is based the research paper by E. Fehrman, A. K. Muhammad, E. M. Mirkes, V. Egan and A. N. Gorban, ["The Five Factor Model of personality and evaluation of drug consumption risk.," arXiv, 2015](https://arxiv.org/abs/1506.06297). The data was collected from 1885 English-speaking participants over 18 years of age between March 2011 and March 2012.
+
+In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Never Used' (the original predictor) and 'Used' (the combination of the others).
+
+The original dataset includes questions related to the use of alcohol, amphetamines, amyl nitrite, benzodiazepines, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, magic mushrooms, nicotine and volatile substance abuse (VSA)) and one fictitious drug (Semeron) which was introduced to identify over-claimers. In the present study, we restrict our scope to examining cannabis consumption.
+
+The data is divided into five demographic predictors : Age, Gender, Level of education, Ethnicity and Country of origin.
+
+In addition, the data includes the results from seven tests  administered to assess personality, specifically:
+
+1. Neuroticism (a long-term tendency to experience negative emotions such as nervousness, tension, anxiety and depression);
+2. Extraversion (manifested in outgoing, warm, active, assertive, talkative, cheerful, and in search of stimulation characteristics);
+3. Openness to experience (a general appreciation for art, unusual ideas, and imaginative, creative, unconventional, and wide interests);
+4. Agreeableness (a dimension of interpersonal relations, characterized by altruism, trust, modesty, kindness, compassion and cooperativeness);
+5. Conscientiousness (a tendency to be organized and dependable, strong-willed, persistent, reliable, and efficient);
+6. Impulsiveness;
+7. Sensation-seeking.
+
+The working dataset in this study therefore consists of one Class (Cannabis consumption labeled 'Used') and twelve predictors (five demographic and seven personality-related). 
+
+## - Key steps
+
+We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluating the goodness of fit of our model. it being a classificaiton problem, we use the accuracy as the metric for fit with the test set. 
+
+This report consists of two main sections:
+
++ In the first part, after performing minor data engineering, we explore and analyze the dataset.
+
++ In the second part, we move on to the modeling phase.
+
+# Analysis
+
+## A: Data engineering and checks
+
+All predictors have already been normalized and centered by the authors of the original paper.
+
+We construct the 'Used' class to separate 'Never used' which we label "0"" from the others which we label "1".
+
+```{r used class, message=FALSE, paged.print=FALSE}
+# Create a 'Used' column to separate CL0 (never used) from the others 
+df.raw <- df.raw %>% mutate(Used = ifelse(Cannabis == "CL0", 0, 1))
+
+# Change the Used predictor to a factor
+df.raw[,'Used'] <- factor(as.character(df.raw[,'Used']))
+```
+
+There are `r sum(anyNA(df.raw))` NAs in the dataset.
+
+We then partition the data between training (80%) and test sets (20%) preserving the distribution of the Cannabis class.
+```{r data partition, message=FALSE, paged.print=FALSE}
+set.seed(15)
+trainIndex <- createDataPartition(df.raw$Cannabis, 
+                                  p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+
+df.train <- df.raw[ trainIndex,]
+df.test  <- df.raw[-trainIndex,]
+```
+
+
+## B: Data exploration / vizualisation
+
+## C: Modeling
+
+# Results
+
+# Conclusion

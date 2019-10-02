@@ -56,8 +56,10 @@ prop.table(table(df.train$Used))
 # responders that have never used
 prop.table(table(df.train$Cannabis))
 
-# Correlation among features ####
-df.cor <- df.train %>% select(-Id, -Used, -Cannabis)
+# Feature correlation analysis ####
+df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
+                              Nscore, Escore, Oscore, Ascore, Cscore, 
+                              Impulsive, SS)
 cormat <- as_tibble(corr_plot(df.cor, "Feature correlation"))
 cor.test(df.cor$SS, df.cor$Impulsive)
 rm(df.cor)
@@ -69,7 +71,9 @@ rm(df.cor)
 # Global plot parameters ####
 fill <- 'skyblue3'
 color <- 'grey'
-used_colors <- c("#af8dc3", "#7fbf7b") # No/Yes
+fill_no <- "#af8dc3"
+fill_yes <- "#7fbf7b"
+used_colors <- c(fill_no, fill_yes) # No/Yes
 alpha <- 0.4 # alpha-blending
 
 # Overall cannabis consumption ####
@@ -111,37 +115,40 @@ df.age <- df.train %>% group_by(Age) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Age) %>% 
   summarize(n = n()) %>% 
-  filter(Used == "1") %>% 
+  filter(Used == "0") %>% 
   select(n)
-df.age <- df.age %>% mutate(Yes = temp$n, prop_yes = Yes/n)
+df.age <- df.age %>% mutate(No = temp$n, prop_no = No/n)
 
 # Plot
-labels <- c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")
+labels.age <- c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")
 
 plotAgeProp <- df.age %>% 
-  ggplot(aes(x = factor(Age), y = prop_yes)) + 
-  geom_bar(stat = "identity", aes(fill = I(fill), color = I(color))) +
-  scale_x_discrete(labels = labels)  +
-  labs(title = "Proportion of cannabis users by age group",
+  ggplot(aes(x = factor(Age), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", 
+           aes(fill = I(fill_no), 
+               color = I(color))) +
+  scale_x_discrete(labels = labels.age)  +
+  labs(title = "Age group",
        x = "Years old",
-       y = "Proportion")
-plotAgeProp
+       y = "Proportion") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1))
 
 plotAge <- df.train %>% 
             ggplot(aes(factor(Age))) + 
             geom_histogram(stat = "count", 
+                           position = "dodge",
                            aes(fill = Used)) +
-            scale_x_discrete(labels = labels) +
-            labs(title = "Age distribution",
+            scale_x_discrete(labels = labels.age) +
+            labs(title = "Age group",
                  x = "Years old",
-                 y = "Count") + 
-            scale_fill_manual(name = "Used?", 
-                              values = c("0" = used_colors[1], "1" = used_colors[2]), 
-                              labels = c("No", "Yes")) +
-            guides(fill = guide_legend(label.position = "left", 
-                                       label.hjust = 1))
-plotAge
-rm(df.age)
+                 y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE)
 
 # 2. Gender analysis ####
 
@@ -149,37 +156,37 @@ df.gender <- df.train %>% group_by(Gender) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Gender) %>% 
   summarize(n = n()) %>% 
-  filter(Used == "1") %>% 
+  filter(Used == "0") %>% 
   select(n)
-df.gender <- df.gender %>% mutate(Yes = temp$n, prop_yes = Yes/n)
+df.gender <- df.gender %>% mutate(No = temp$n, prop_no = No/n)
 
 # Plot
 labels <- c("Male", "Female")
 
 plotGenderProp <- df.gender %>% 
-  ggplot(aes(x = factor(Gender), y = prop_yes)) + 
-  geom_bar(stat = "identity", aes(fill = I(fill), color = I(color))) +
+  ggplot(aes(x = factor(Gender), y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
   scale_x_discrete(labels = labels)  +
-  labs(title = "Proportion of cannabis users by gender",
+  labs(title = "Gender",
        x = "",
-       y = "Proportion")
-plotGenderProp
+       y = "Proportion") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1))
 
 plotGender <- df.train %>% 
   ggplot(aes(factor(Gender))) + 
-  geom_histogram(stat = "count", 
+  geom_histogram(stat = "count",  
+                 position = "dodge",
                  aes(fill = Used)) +
   scale_x_discrete(labels = labels) +
-  labs(title = "Gender distribution",
+  labs(title = "Gender",
        x = "",
-       y = "Count") + 
+       y = "") +
   scale_fill_manual(name = "Used?", 
                     values = c("0" = used_colors[1], "1" = used_colors[2]), 
                     labels = c("No", "Yes")) +
   guides(fill = guide_legend(label.position = "left", 
                              label.hjust = 1))
-plotGender
-rm(df.gender)
 
 # 3. Education analysis ####
 
@@ -187,12 +194,12 @@ df.edu <- df.train %>% group_by(Education) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Education) %>% 
   summarize(n = n()) %>% 
-  filter(Used == "1") %>% 
+  filter(Used == "0") %>% 
   select(n)
-df.edu <- df.edu %>% mutate(Yes = temp$n, prop_yes = Yes/n)
+df.edu <- df.edu %>% mutate(No = temp$n, prop_no = No/n)
 
 # Plot
-labels <- c("Left school before 16 yo", 
+labels.edu <- c("Left school before 16 yo", 
             "Left school at 16 yo", 
             "Left school at 17 yo", 
             "Left school at 18 yo", 
@@ -202,43 +209,40 @@ labels <- c("Left school before 16 yo",
             "Masters degree",
             "Doctorate degree")
 
-# levels <- c(-2.43591, -1.73790, -1.43719, 
-#             -1.22751, -0.61113, -0.05921,
-#             0.45468, 1.16365, 1.98437)
+levels.edu <- c(-2.43591, -1.73790, -1.43719,
+            -1.22751, -0.61113, -0.05921,
+            0.45468, 1.16365, 1.98437)
 
 plotEduProp <- df.edu %>% 
   ggplot(aes(x = factor(Education), 
-             y = prop_yes)) + 
-  geom_bar(stat = "identity", aes(fill = I(fill), color = I(color))) +
-  labs(title = "Proportion of cannabis users by level of education",
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Education",
        x = "",
        y = "") +
   aes(x=reorder(factor(Education, 
-                       labels = labels), 
-                -prop_yes)) +
+                       labels = labels.edu), 
+                -prop_no)) +
   theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
   scale_y_continuous(breaks = seq(0, 1, .1), 
-                     sec.axis = dup_axis(),
                      labels = scales::percent_format(accuracy = 1)) +
   theme(axis.title.x=element_blank())
-plotEduProp
 
 plotEdu <- df.train %>% 
   ggplot(aes(factor(Education))) + 
   geom_histogram(stat = "count", 
+                 position = "dodge",
                  aes(fill = Used)) +
-  scale_x_discrete(labels = labels) +
-  labs(title = "Distribution by level of education",
+  scale_x_discrete(labels = labels.edu) +
+  labs(title = "Level of education",
        x = "",
-       y = "Count") + 
+       y = "") +
   scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], "1" = used_colors[2]), 
-                    labels = c("No", "Yes")) +
-  guides(fill = guide_legend(label.position = "left", 
-                             label.hjust = 1)) +
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
   theme(axis.text.x = element_text(angle = 35, hjust = 1))
-plotEdu
-rm(df.edu)
 
 # 4. Country analysis ####
 
@@ -246,93 +250,117 @@ df.country <- df.train %>% group_by(Country) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Country) %>% 
   summarize(n = n()) %>% 
-  filter(Used == "1") %>% 
-  select(n)
-df.country <- df.country %>% mutate(Yes = temp$n, prop_yes = Yes/n)
+  filter(Used == "1") %>% # Handle the case of "New Zealand"
+  select(n) %>% 
+  mutate(n = df.country$n - n)
+df.country <- df.country %>% mutate(No = temp$n, prop_no = No/n)
 
 # Plot
-labels <- c("USA", "New Zealand", "Other", "Australia", 
+labels.ctry <- c("USA", "New Zealand", "Other", "Australia", 
             "Republic of Ireland", "Canada", "UK")
 
-levels <- c(-0.57009, -0.46841, -0.28519, -0.09765, 
+levels.ctry <- c(-0.57009, -0.46841, -0.28519, -0.09765, 
             0.21128, 0.24923, 0.96082)
 
 plotCountryProp <- df.country %>% 
-  ggplot(aes(x = factor(Country, levels = levels, labels = labels), 
-             y = prop_yes)) + 
-  geom_bar(stat = "identity", aes(fill = I(fill), color = I(color))) +
-  labs(title = "Proportion of cannabis users by country",
+  ggplot(aes(x = factor(Country, 
+                        levels = levels.ctry, 
+                        labels = labels.ctry), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Country",
        x = "",
        y = "") +
   theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
   scale_y_continuous(breaks = seq(0, 1, .1), 
-                     sec.axis = dup_axis(),
                      labels = scales::percent_format(accuracy = 1)) +
   theme(axis.title.x=element_blank())
-plotCountryProp
 
 plotCountry <- df.train %>% 
-  ggplot(aes(factor(Country, labels = labels, levels = levels))) + 
+  ggplot(aes(factor(Country, 
+                    labels = labels.ctry, 
+                    levels = levels.ctry))) + 
   geom_histogram(stat = "count", 
+                 position = "dodge",
                  aes(fill = Used)) +
-  labs(title = "Distribution by country",
+  labs(title = "Country",
        x = "",
-       y = "Count") + 
+       y = "") +
   scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], "1" = used_colors[2]), 
-                    labels = c("No", "Yes")) +
-  guides(fill = guide_legend(label.position = "left", 
-                             label.hjust = 1)) +
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
   theme(axis.text.x = element_text(angle = 35, hjust = 1))
-plotCountry
-rm(df.country)
 
 # 5. Ethnicity analysis ####
 
-df.ethn <- df.train %>% group_by(Ethnicity) %>% summarize(n = n())
+df.eth <- df.train %>% group_by(Ethnicity) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Ethnicity) %>% 
   summarize(n = n()) %>% 
-  filter(Used == "1") %>% 
-  select(n)
-df.ethn <- df.ethn %>% mutate(Yes = temp$n, prop_yes = Yes/n)
+  filter(Used == "1") %>% # Handle the case of "Mixed-Black/Asian"
+  select(n) %>% 
+  mutate(n = df.eth$n - n)
+df.eth <- df.eth %>% mutate(No = temp$n, prop_no = No/n)
 
 # Plot
-labels <- c("Black", "Asian", "White", "Mixed-White/Black", 
+labels.eth <- c("Black", "Asian", "White", "Mixed-White/Black", 
             "Other","Mixed-White/Asian", "Mixed-Black/Asian")
 
-levels <- c(-1.10702, -0.50212, -0.31685, -0.22166, 
+levels.eth <- c(-1.10702, -0.50212, -0.31685, -0.22166, 
             0.11440, 0.12600, 1.90725)
 
-plotEthProp <- df.ethn %>% 
-  ggplot(aes(x = factor(Ethnicity, levels = levels, labels = labels), 
-             y = prop_yes)) + 
-  geom_bar(stat = "identity", aes(fill = I(fill), color = I(color))) +
-  labs(title = "Proportion of cannabis users by ethnicity",
+plotEthProp <- df.eth %>% 
+  ggplot(aes(x = factor(Ethnicity, 
+                        levels = levels.eth, 
+                        labels = labels.eth), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Ethnicity",
        x = "",
        y = "") +
   theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
   scale_y_continuous(breaks = seq(0, 1, .1), 
-                     sec.axis = dup_axis(),
                      labels = scales::percent_format(accuracy = 1)) +
   theme(axis.title.x=element_blank())
-plotEthProp
 
 plotEth <- df.train %>% 
-  ggplot(aes(factor(Ethnicity, labels = labels, levels = levels))) + 
+  ggplot(aes(factor(Ethnicity, 
+                    labels = labels.eth, 
+                    levels = levels.eth))) + 
   geom_histogram(stat = "count", position = "dodge",
                  aes(fill = Used)) +
-  labs(title = "Distribution by ethnicity",
+  labs(title = "Ethnicity",
        x = "",
-       y = "Count") + 
+       y = "")  +
   scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], "1" = used_colors[2]), 
-                    labels = c("No", "Yes")) +
-  guides(fill = guide_legend(label.position = "left", 
-                             label.hjust = 1)) +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + scale_y_sqrt()
-plotEth
-rm(df.ethn)
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  scale_y_sqrt()
+
+# Demographic summary plots ####
+# Distribution:
+grid.arrange(plotCountry, plotEdu, plotEth,
+             plotAge, plotGender,
+             nrow = 2,
+             top = "Use of cannabis in training set by:",
+             left = "Counts")
+
+# Free up memory
+rm(plotCountry, plotEdu, plotEth, plotAge, plotGender)
+
+# Proportions:
+grid.arrange(plotCountryProp, plotEduProp, plotEthProp,
+             plotAgeProp, plotGenderProp,
+             nrow = 2,
+             top = "Proportion of cannabis non-users in training set by:",
+             left = "Counts")
+# Free up memory
+rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp, plotGenderProp)
 
 # B: Psychological analyses #####
 # 1. Neuroticism (N-score) plot ####

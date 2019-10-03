@@ -783,7 +783,7 @@ display_model <- function(model, plot_title){
 }
 
 # Prediction
-run_prediction <- function(df.test, model, predictors) {
+run_prediction_old <- function(df.test, model, predictors) {
   predictions <- predict.train(object = model, 
                                df.test[,predictors], 
                                type="raw")
@@ -793,7 +793,12 @@ run_prediction <- function(df.test, model, predictors) {
 
   df.test <- df.test %>% 
     mutate(predictions = as.integer(as.character(predictions)))
-  return(df_test)
+  return(df.test)
+}
+
+confMat <- function(model, df.test){
+  return(confusionMatrix(predict(model, newdata = df.test), df.test$Used))
+  CM.glm.base$overall["Accuracy"]
 }
 
 # Training parameters
@@ -804,17 +809,19 @@ fitControl <- trainControl(
   allowParallel = TRUE
 )
 
-# GLM ####
+# Generalized linear model ####
 set.seed(50)
-model.glm.base <- train(df.train[,predictors], 
+model.glm <- train(df.train[,predictors], 
                           as.factor(df.train[,outcomeName]), 
                           method = 'glm', 
                           metric = 'Accuracy')
 
 # Generalized Linear Model
-display_model(model.glm.base, "GLM - Variable Importance")
-max(model.glm.base$results$Accuracy)
+display_model(model.glm, "GLM - Variable Importance")
+max(model.glm$results$Accuracy) # Fit to training data
 
+CM.glm <- confusionMatrix(predict(model.glm, newdata = df.test), df.test$Used)
+CM.glm$overall["Accuracy"] # Fit to test data
 
 # Decision tree ####
 set.seed(90)
@@ -824,9 +831,12 @@ model.rpart.base <- train(df.train[,predictors],
                           method = 'rpart', 
                           metric = 'Accuracy')
 
-display_model(model.rpart.base, "RPART - Variable Importance (no parameter tuning)")
+display_model(model.rpart.base, "Decision Tree - Variable Importance (no parameter tuning)")
 model.rpart.base
-max(model.rpart.base$results$Accuracy)
+max(model.rpart.base$results$Accuracy) # Fit to training data
+
+CM.rpart.base <- confusionMatrix(predict(model.rpart.base, newdata = df.test), df.test$Used)
+CM.rpart.base$overall["Accuracy"] # Fit to test data
 
 set.seed(80)
 # With parameter tuning 
@@ -837,14 +847,92 @@ model.rpart <- train(df.train[,predictors],
                      tuneLength = 500, 
                      parms = list(split='information'))
 
-display_model(model.rpart, "RPART - Variable Importance")
+display_model(model.rpart, "Decision Tree - Variable Importance")
 model.rpart
-max(model.rpart$results$Accuracy)
+max(model.rpart$results$Accuracy) # Fit to training data
 
-pred.rpart <- run_prediction(df.test, model.rpart, predictors)
+CM.rpart <- confusionMatrix(predict(model.rpart, newdata = df.test), df.test$Used)
+CM.rpart$overall["Accuracy"] # Fit to test data
 
-saveimage(file='environment.RData')
 
+# Random forest ####
+set.seed(25)
+# RF without parameter tuning
+model.rf.base <- train(df.train[,predictors], 
+                          as.factor(df.train[,outcomeName]), 
+                          method = 'rf', 
+                          metric = 'Accuracy')
+
+display_model(model.rf.base, "Random forest - Variable Importance (no parameter tuning)")
+model.rf.base
+max(model.rf.base$results$Accuracy) # Fit to training data
+
+CM.rf.base <- confusionMatrix(predict(model.rf.base, newdata = df.test), df.test$Used)
+CM.rf.base$overall["Accuracy"] # Fit to test data
+
+# RF with parameter tuning
+grid.rf <- expand.grid(mtry = seq(1, 20))
+set.seed(26)
+model.rf <- train(df.train[,predictors], 
+                  as.factor(df.train[,outcomeName]),
+                  method = 'rf',
+                  data = df.train,
+                  tuneGrid = grid.rf)
+display_model(model.rf, "RF - Variable Importance")
+model.rf$finalModel
+max(model.rf$results$Accuracy) # Fit to training data
+
+CM.rf <- confusionMatrix(predict(model.rf, newdata = df.test), df.test$Used)
+CM.rf$overall["Accuracy"] # Fit to test data
+
+# Stochastic Gradient boosting
+
+# Stochastic Gradient Boosting
+# GBM without parameter tuning
+set.seed(5)
+model.gbm.base <- train(df.train[,predictors], 
+                       as.factor(df.train[,outcomeName]), 
+                       method = 'gbm', 
+                       metric = 'Accuracy')
+display_model(model.gbm.base, "GBM - Variable Importance (no parameter tuning)")
+max(model.gbm.base$results$Accuracy)
+
+CM.gbm.base <- confusionMatrix(predict(model.gbm.base, newdata = df.test), df.test$Used)
+CM.gbm.base$overall["Accuracy"] # Fit to test data
+
+# GBM with parameter tuning
+max.depth <- floor(sqrt(NCOL(df.train)))
+grid.gbm <- expand.grid(n.trees = seq(50, 300, 10),
+                        shrinkage = seq(.01, .11, .02),
+                        n.minobsinnode = seq(3, 10),
+                        interaction.depth = seq(2, max.depth))
+set.seed(9)
+model.gbm <- train(df.train[,predictors],
+                   as.factor(df.train[,outcomeName]),
+                   method = 'gbm',
+                   trControl = fitControl,
+                   tuneGrid = grid.gbm)
+display_model(model.gbm, "GBM - Variable Importance")
+model.gbm$finalModel
+max(model.gbm$results$Accuracy) # Fit to training data
+
+CM.gbm <- confusionMatrix(predict(model.gbm, newdata = df.test), df.test$Used)
+CM.gbm$overall["Accuracy"] # Fit to test data
+
+model.fit <- tibble(
+  method = c("GLM", 
+             "RPART (no tuning)", "RPART", 
+             "RF (no tuning)", "RF", 
+             "GBM (no tuning)"),
+  accuracy = c(CM.glm$overall["Accuracy"], 
+               CM.rpart$overall["Accuracy"], 
+               CM.rpart.base$overall["Accuracy"],
+               CM.rf$overall["Accuracy"],
+               CM.rf.base$overall["Accuracy"],
+               CM.gbm.base$overall["Accuracy"]))
+model.fit
+
+save.image(file='environment.RData')
 
 # Grading Rubric
 # Files (5 points possible)

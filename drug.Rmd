@@ -1,11 +1,14 @@
 ---
-title: "Cannabis consumption prediction from demographics and personality"
+title: "Prediction of Cannabis Consumption from Demographics and Personality"
+subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/2/2019"
 output:
-  html_document: default
-  pdf_document: default
-subtitle: HarvardX PH125.9x Data Science Capstone
+  pdf_document:
+    toc: yes
+  html_document:
+    number_sections: no
+    toc: yes
 ---
 
 <!-- The report should include the following at a minimum: -->
@@ -40,7 +43,7 @@ if(!require(reshape2)) install.packages("reshape2", repos = "http://cran.us.r-pr
 
 ```{r load data, message=TRUE, warning=TRUE}
 # Remote / local flag
-remote <- 1
+remote <- 0
 
 if(remote == 1) { # Load data file from github repository
   df.raw <- read.table("https://raw.githubusercontent.com/Ursuline/PH125.9x-2/master/data/drug_consumption.csv", 
@@ -59,9 +62,18 @@ names(df.raw) <- c("Id", "Age", "Gender", "Education", "Country", "Ethnicity",
 
 # Executive Summary
 
+## - Introduction
+
+Drug use is a behavior that constitutes an important factor linked to poor health, including early mortality, and which presents significant adverse consequences for the social fabric, notably with respect to criminality and family cohesion. Early detection of an individual's predisposition to drug consumption offers the opportunity to healthcare professionals to short-circuit the onset of addiction. 
+
+The present study is based on a dataset that includes demographic and psychological information related to the consumption of 18 legal and illegal drugs by 1885 participants. For the purpose of this study, we choose to focus the data analysis and modeling to the use of cannabis.
+
 ## - Goal of project
 
-The goal of this project is to assess whether an individual's consumption of cannabis can be predicted from a combination of demographic and personality data.
+The goal of this project is to assess whether an individual's consumption of cannabis can be predicted from a combination of demographic and personality data. 
+
+To do so, we build and assess the effectiveness of a number (***HOW MANY?***) of machine learning classifiers and confront the results obtained to the insights provided by data exploration.
+
 
 ## - Dataset description
 
@@ -72,38 +84,47 @@ In the original dataset, drug use is separated between 'Never used', 'Used over 
 
 The original dataset includes questions related to the use of alcohol, amphetamines, amyl nitrite, benzodiazepines, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, magic mushrooms, nicotine and volatile substance abuse (VSA)) and one fictitious drug (Semeron) which was introduced to identify over-claimers. In the present study, we restrict our scope to examining cannabis consumption.
 
-The data is divided into five demographic predictors : Age, Gender, Level of education, Ethnicity and Country of origin.
+The data consists of two groups of pre-normalized and centered predictors: 
 
-In addition, the data includes the results from seven tests  administered to assess personality, specifically:
+1. Five demographic predictors : Age, Gender, Level of education, Ethnicity, and Country of origin.
 
-1. Neuroticism (a long-term tendency to experience negative emotions such as nervousness, tension, anxiety and depression);
-2. Extraversion (manifested in outgoing, warm, active, assertive, talkative, cheerful, and in search of stimulation characteristics);
-3. Openness to experience (a general appreciation for art, unusual ideas, and imaginative, creative, unconventional, and wide interests);
-4. Agreeableness (a dimension of interpersonal relations, characterized by altruism, trust, modesty, kindness, compassion and cooperativeness);
-5. Conscientiousness (a tendency to be organized and dependable, strong-willed, persistent, reliable, and efficient);
-6. Impulsiveness;
-7. Sensation-seeking.
+2. The results from seven scored tests administered to assess personality, specifically:
 
-The working dataset in this study therefore consists of one Class (Cannabis consumption labeled 'Used') and twelve predictors (five demographic and seven personality-related). 
+  + Neuroticism (a long-term tendency to experience negative emotions such as nervousness, tension, anxiety and depression);
+  + Extraversion (manifested in outgoing, warm, active, assertive, talkative, cheerful, and in search of stimulation characteristics);
+  + Openness to experience (a general appreciation for art, unusual ideas, and imaginative, creative, unconventional, and wide interests);
+  + Agreeableness (a dimension of interpersonal relations, characterized by altruism, trust, modesty, kindness, compassion and cooperativeness);
+  + Conscientiousness (a tendency to be organized and dependable, strong-willed, persistent, reliable, and efficient);
+  + Impulsiveness;
+  + Sensation-seeking.
+
+The working dataset in this study therefore consists of one Class (Cannabis consumption labeled 'Used') and twelve predictors (five demographic and seven personality-related).
 
 ## - Key steps
 
-We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluating the goodness of fit of our model. it being a classification problem, we use the accuracy as the metric for fit with the test set. 
+We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluating the goodness of fit of each classifier. This being a classification problem, we use the accuracy as the metric to assess the goodness of fit.
 
 This report consists of two main sections:
 
 + In the first part, after performing minor data engineering, we explore and analyze the dataset.
++ In the second part, we move on to the modeling phase:
 
-+ In the second part, we move on to the modeling phase.
+  - After applying a Recursive feature elimination algotirhm to remove predictors that do not contribute significantly to the outcome, we build models based on the following methods:
+  - Generalized linear model
+  - Decision tree 
+  - Random forest
+  - Stochastic gradient boosting
+
+We compare the modeling approaches, both in terms of accuracy and coherence with the data analysis.
 
 \newpage 
 # Analysis
 
-## A: Data engineering and checks
+## A: Data engineering
 
 All predictors have already been normalized and centered by the authors of the original paper.
 
-We construct the 'Used' class to separate 'Never used' which we label "0"" from the others which we label "1".
+We construct the 'Used' class to separate 'Never used' participants which we label "0"" from the others which we label "1".
 
 ```{r used class, message=FALSE, paged.print=FALSE}
 # Create a 'Used' column to separate CL0 (never used) from the others 
@@ -111,11 +132,17 @@ df.raw <- df.raw %>% mutate(Used = ifelse(Cannabis == "CL0", 0, 1))
 
 # Change the Used predictor to a factor
 df.raw[,'Used'] <- factor(as.character(df.raw[,'Used']))
+
+# Keep cannabis as the only Class (ie: drop all the other drugs from the data frame). 
+df.raw <- df.raw %>% 
+  select("Id", "Age", "Gender", "Education", "Country", "Ethnicity", "Nscore", 
+         "Escore", "Oscore", "Ascore", "Cscore", "Impulsive", "SS", "Cannabis", 
+         "Used")
 ```
 
 There are `r sum(anyNA(df.raw))` NAs in the dataset.
 
-We then partition the data between training (80%) and test sets (20%) preserving the distribution of the Cannabis class.
+We then partition the data between training (80% / df.train) and test sets (20% / df.test) preserving the distribution of the Cannabis class.
 
 ```{r data partition, message=FALSE, paged.print=FALSE}
 set.seed(15)
@@ -123,7 +150,6 @@ trainIndex <- createDataPartition(df.raw$Cannabis,
                                   p = .8, 
                                   list = FALSE, 
                                   times = 1)
-
 df.train <- df.raw[ trainIndex,]
 df.test  <- df.raw[-trainIndex,]
 ```
@@ -131,17 +157,24 @@ df.test  <- df.raw[-trainIndex,]
 \newpage
 ## B: Data exploration
 
+```{r global variables, message=FALSE, paged.print=FALSE}
+users <- (df.train %>% filter(Used == 1) %>% dim())[1]
+non_users <- (df.train %>% filter(Used == 0) %>% dim())[1]
+ncolumns <- (df.train %>% dim())[2]
+```
+
 ```{r plot parameters, message=FALSE, warning=FALSE, paged.print=FALSE}
-# Global plot parameters ####
+# Global plot parameters
 fill <- 'skyblue3'
 color <- 'grey'
 fill_no <- "#af8dc3"
 fill_yes <- "#7fbf7b"
 used_colors <- c(fill_no, fill_yes) # No/Yes
 alpha <- 0.4 # alpha-blending
+axis_text_size <- 10
 ```
 
-### Feature correlation analysis
+### Feature correlation
 
 ```{r correlation matrix utilities, message=FALSE, paged.print=FALSE}
 # *** Utilities for correlation matrix plot
@@ -204,7 +237,7 @@ corr_plot <- function(df, title) { # *** Main routine ***
 }
 ```
 
-We examine whether any redundancies are present among the predictors:
+We examine whether any redundancies are present among the `r ncolumns-3` predictors:
 
 ```{r correlation among features, message=FALSE, paged.print=FALSE}
 df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
@@ -215,18 +248,14 @@ cortest <- cor.test(df.cor$SS, df.cor$Impulsive)
 rm(df.cor)
 ```
 
-Most features are weakly inter-correlated, the strongest correlation is between Impulsivity and Sensation-seeking (`r cortest$estimate` correlation, p-value = `r if(cortest$p.value < .000001) 0 else cortest$p.value`). It is safe to use all features for modeling purposes.
+Most features are weakly inter-correlated, the strongest correlation is between Impulsivity and Sensation-seeking (`r cortest$estimate` correlation, p-value = `r if(cortest$p.value < .000001) 0 else cortest$p.value`): there are no redundancies among  features for modeling purposes.
 
 \newpage
 ### Data exploration
 
 #### Overall cannabis consumption
 
-```{r parameters, message=FALSE, paged.print=FALSE}
-users <- (df.train %>% filter(Used == 1) %>% dim())[1]
-non_users <- (df.train %>% filter(Used == 0) %>% dim())[1]
-```
-The training set of `r dim(df.train)[1]` participants (left plot) is binned into `r users` users and `r non_users` non-users. The original data is shown on the right.
+The training set of `r dim(df.train)[1]` participants (left plot) is reclassified into `r users` users and `r non_users` non-users. The original classification is shown on the right.
 
 ```{r overall cannabis, message=FALSE, warning=FALSE, paged.print=FALSE}
 freq_labels <- c("Never used", "> a decade ago", "Last decade", 
@@ -242,7 +271,6 @@ p1 <- df.train %>%
        y = "") +
   scale_x_discrete(labels = freq_labels) +
   theme(axis.text.x = element_text(angle = 35, hjust = 1))
-
 
 p2 <- df.train %>% 
   ggplot(aes(Used)) + 
@@ -260,11 +288,14 @@ grid.arrange(p2, p1,
              left = "Count"
 )
 
+# Remove the Cannabis predictor
+df.train <- df.train %>% select(-Cannabis)
+df.test <- df.test %>% select(-Cannabis)
 ```
 
 \newpage
-#### Demographic analysis
-```{r age analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+#### Demographic analysis (before re-binning)
+```{r age analysis 1, message=FALSE, warning=FALSE, paged.print=FALSE}
 
 df.age <- df.train %>% group_by(Age) %>% summarize(n = n())
 temp <- df.train %>% 
@@ -284,7 +315,8 @@ plotAgeProp <- df.age %>%
            aes(fill = I(fill_no), 
                color = I(color))) +
   scale_x_discrete(labels = labels.age)  +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size)) +
   labs(title = "Age group",
        x = "Years old",
        y = "") +
@@ -297,7 +329,8 @@ plotAge <- df.train %>%
                            position = "dodge",
                            aes(fill = Used)) +
             scale_x_discrete(labels = labels.age) +
-            theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+            theme(axis.text.x = element_text(angle = 35, hjust = 1),
+                  text = element_text(size = axis_text_size)) +
             labs(title = "Age group",
                  x = "Years old",
                  y = "") +
@@ -307,7 +340,7 @@ plotAge <- df.train %>%
                     labels = c("No", "Yes"), 
                     guide = FALSE) 
 ```
-```{r gender analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r gender analysis 1, message=FALSE, warning=FALSE, paged.print=FALSE}
 df.gender <- df.train %>% group_by(Gender) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Gender) %>% 
@@ -327,7 +360,8 @@ plotGenderProp <- df.gender %>%
        x = "",
        y = "") +
   scale_y_continuous(breaks = seq(0, 1, .1), 
-                     labels = scales::percent_format(accuracy = 1))
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(text = element_text(size = axis_text_size))
 
 plotGender <- df.train %>% 
   ggplot(aes(factor(Gender))) + 
@@ -342,9 +376,10 @@ plotGender <- df.train %>%
                     values = c("0" = used_colors[1], "1" = used_colors[2]), 
                     labels = c("No", "Yes")) +
   guides(fill = guide_legend(label.position = "left", 
-                             label.hjust = 1))
+                             label.hjust = 1)) +
+  theme(text = element_text(size = axis_text_size))
 ```
-```{r edu analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r edu analysis 1, message=FALSE, warning=FALSE, paged.print=FALSE}
 df.edu <- df.train %>% group_by(Education) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Education) %>% 
@@ -378,7 +413,8 @@ plotEduProp <- df.edu %>%
   aes(x=reorder(factor(Education, 
                        labels = labels.edu), 
                 -prop_no)) +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size)) + 
   scale_y_continuous(breaks = seq(0, 1, .1), 
                      labels = scales::percent_format(accuracy = 1)) +
   theme(axis.title.x=element_blank())
@@ -397,9 +433,10 @@ plotEdu <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"), 
                     guide = FALSE) +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size))
 ```
-```{r country analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r country analysis 1, message=FALSE, warning=FALSE, paged.print=FALSE}
 df.country <- df.train %>% group_by(Country) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Country) %>% 
@@ -425,7 +462,8 @@ plotCountryProp <- df.country %>%
   labs(title = "Country",
        x = "",
        y = "") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size)) + 
   scale_y_continuous(breaks = seq(0, 1, .1), 
                      labels = scales::percent_format(accuracy = 1)) +
   theme(axis.title.x=element_blank())
@@ -445,9 +483,10 @@ plotCountry <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"), 
                     guide = FALSE) +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size))
 ```
-```{r ethnicity analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r ethnicity analysis 1, message=FALSE, warning=FALSE, paged.print=FALSE}
 df.eth <- df.train %>% group_by(Ethnicity) %>% summarize(n = n())
 temp <- df.train %>% 
   group_by(Used, Ethnicity) %>% 
@@ -473,7 +512,8 @@ plotEthProp <- df.eth %>%
   labs(title = "Ethnicity",
        x = "",
        y = "") +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size)) + 
   scale_y_continuous(breaks = seq(0, 1, .1), 
                      labels = scales::percent_format(accuracy = 1)) +
   theme(axis.title.x=element_blank())
@@ -492,10 +532,11 @@ plotEth <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"), 
                     guide = FALSE) +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  theme(axis.text.x = element_text(angle = 35, hjust = 1),
+        text = element_text(size = axis_text_size)) + 
   scale_y_sqrt()
 ```
-```{r demographic distribution plot, message=FALSE, paged.print=FALSE}
+```{r demographic distribution plot 1, message=FALSE, paged.print=FALSE}
 # Distribution:
 grid.arrange(plotCountry, plotEdu, plotEth,
              plotAge, plotGender,
@@ -503,19 +544,300 @@ grid.arrange(plotCountry, plotEdu, plotEth,
              top = "Use of cannabis in training set by:",
              left = "Counts")
 
-# Free up memory
-rm(plotCountry, plotEdu, plotEth, plotAge, plotGender)
+# Free up memory (but keep Gender)
+rm(plotCountry, plotEdu, plotEth, plotAge)
 ```
-```{r demographic proportion plot, message=FALSE, paged.print=FALSE}
+
+```{r demographic variables, message=FALSE, paged.print=FALSE}
+# These variables are created due to the inability of my version of inline R 
+# to handle pipes (%>%)
+population <- df.train %>% nrow()
+users <- df.train %>% filter(Used == 1) %>% nrow()
+n16 <- df.train %>% filter(Education == -1.73790) %>% nrow()
+nblacks <- df.train %>% filter(Ethnicity == -1.10702) %>% nrow()
+nasians <- df.train %>% filter(Ethnicity == -0.50212) %>% nrow()
+nwhites <- df.train %>% filter(Ethnicity == -0.31685) %>% nrow()
+nblasians <- df.train %>% filter(Ethnicity == 1.90725) %>% nrow()
+nUK <- df.country %>% filter(Country == 0.96082) %>% select(n)
+nNZ <- df.country %>% filter(Country == -0.46841) %>% select(n)
+nIrish <- df.country %>% filter(Country == 0.21128) %>% select(n)
+nCanadians  <- df.country %>% filter(Country == 0.24923) %>% select(n)
+n65 <- df.age <- df.age %>% filter(Age == 2.59171) %>% select(n)
+UK_no <- df.country %>% filter(Country == 0.96082) %>% select(No)
+NZ_no <- df.country %>% filter(Country == -0.46841) %>% select(No)
+black_no  <- df.eth %>% filter(Ethnicity == -1.10702) %>% select(No)
+white_no  <- df.eth %>% filter(Ethnicity == -0.31685) %>% select(No)
+asian_no <- df.eth %>% filter(Ethnicity == -0.50212) %>% select(No)
+prop_UK <- (1 - UK_no/nUK)*100 # UK propensity to use
+prop_NZ <- (1 - NZ_no/nNZ)*100 # NZ propensity to use
+prop_black <- (1 - black_no/nblacks)*100 # Blacks propensity to use
+prop_white <- (1 - white_no/nwhites)*100 # Whites propensity to use
+prop_asian <- (1 - asian_no/nasians)*100 # Asians propensity to use
+prop_male_female <- df.gender$prop_no[2]/df.gender$prop_no[1]
+```
+
+The dataset is dominated by young and educated white American and British participants of both sexes. The small sizes of many sub-groups (New Zealanders (`r nNZ`), Irish (`r nIrish`), Canadians (`r nCanadians`), those that left school as teenagers, Mixed black-asians (`r nblasians`), and people over 65 years of age(`r n65`)) to name just a few adds little valuable insight and will likely only serve to introduce variance in the analysis.
+
+Given the preponderance of cannabis users in the dataset, examining the proportion of non-users in the population is more insightful than that of users:
+
+```{r demographic proportion plot 1, message=FALSE, paged.print=FALSE}
 # Proportions:
 grid.arrange(plotCountryProp, plotEduProp, plotEthProp,
              plotAgeProp, plotGenderProp,
              nrow = 2,
              top = "Proportion of cannabis non-users in training set by:",
-             left = "Proportion")
+             left = "Proportion",
+             bottom = "Higher value = lower use")
 
-# Free up memory
-rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp, plotGenderProp)
+# Free up memory (but keep Gender)
+rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp)
+```
+
+The figure shows:
+
++ British participants have the lowest propensity at using cannabis (`r prop_UK`%) and New Zealanders the highest (`r prop_NZ`%). The latter observation may be little more than the manifestation of the high variance resulting from the small sample size (`r nNZ` participants from New Zealand over a total of `r dim(df.train)[1]`).
+
++ While the most educated participants are less likely to consume, those that left school at 16 years old consume least of all. As in the case of New Zealanders, the latter observation may be an artifact of the small sample size (`r n16` participants left school at 16 years old).
+
++ The data shows that, of all ethnic groups, those that identified as blacks and Asians consume the least cannabis (`r prop_black`% and `r prop_asian`% respectively) compared to, say, whites (`r prop_white`%). Nevertheless the dataset is ethnically dominated by whites (`r nwhites` samples), and here again, results for blacks (`r nblacks` samples), as well as Asians (`r nasians` samples) and other minorities under-represented in the dataset may not be meaningful.
+
++ Age seems to be highly correlated with cannabis consumption, with use decreasing almost steadily with the age group. Given that we only distinguish between people having never used from the others following a 'virginity from cannabis' perspective, this points to a generational phenomenon. Perhaps unsurprisingly, we note a large discrepancy between the generations that precede and those that follow the 1950s.
+
++ Females are `r prop_male_female` times less likely to consume cannabis than males.
+
+At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more realistic binning of the demographic information:
+
+- 3 groups for Country: "USA", "UK", "Others".
+- 6 groups for Education: "Left school as a teen", "Some college", "Professional certificate", "University degree", "Masters degree", "Doctorate degree".
+- 2 ethnic groups: "Whites", "Non-whites"
+- 5 age groups: "18-24", "25-34", "35-44", "45-54", "55+"
+
+```{r rebin demographics, message=FALSE, paged.print=FALSE}
+df.train <- 
+  df.train %>% 
+  mutate(Country = ifelse(Country %in% c(-0.09765, 0.24923, -0.46841, 0.21128), -0.28519, Country)) %>%
+  mutate(Age = ifelse(Age == 2.59171, 1.82213, Age)) %>%
+  mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, Education)) %>%
+  mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
+
+df.test <- 
+  df.test %>% 
+  mutate(Country = ifelse(Country %in% c(-0.09765, 0.24923, -0.46841, 0.21128), -0.28519, Country)) %>%
+  mutate(Age = ifelse(Age == 2.59171, 1.82213, Age)) %>%
+  mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, Education)) %>%
+  mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
+```
+
+\newpage
+#### Demographic analysis (after re-binning)
+
+```{r age analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+df.age <- df.train %>% group_by(Age) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Age) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "0") %>% 
+  select(n)
+df.age <- df.age %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.age <- c("18-24", "25-34", "35-44", "45-54", "55+")
+
+plotAgeProp <- df.age %>% 
+  ggplot(aes(x = factor(Age), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", 
+           aes(fill = I(fill_no), 
+               color = I(color))) +
+  scale_x_discrete(labels = labels.age)  +
+  labs(title = "Age group",
+       x = "Years old",
+       y = "Proportion") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) 
+
+plotAge <- df.train %>% 
+  ggplot(aes(factor(Age))) + 
+  geom_histogram(stat = "count", 
+                 position = "dodge",
+                 aes(fill = Used)) +
+  scale_x_discrete(labels = labels.age) +
+  labs(title = "Age group",
+       x = "Years old",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))  
+```
+
+```{r edu analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.edu <- df.train %>% group_by(Education) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Education) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "0") %>% 
+  select(n)
+df.edu <- df.edu %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.edu <- c("Left school as teen", 
+                "Some college/univ.", 
+                "Prof. certif./diploma",
+                "Univ. degree", 
+                "Masters",
+                "Doctorate")
+
+plotEduProp <- df.edu %>% 
+  ggplot(aes(x = factor(Education, labels = labels.edu), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Education",
+       x = "",
+       y = "") +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) + 
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.title.x=element_blank())
+
+plotEdu <- df.train %>% 
+  ggplot(aes(factor(Education))) + 
+  geom_histogram(stat = "count", 
+                 position = "dodge",
+                 aes(fill = Used)) +
+  scale_x_discrete(labels = labels.edu) +
+  labs(title = "Level of education",
+       x = "",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+```{r country analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.country <- df.train %>% group_by(Country) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Country) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "1") %>% # Handle the case of "New Zealand"
+  select(n) %>% 
+  mutate(n = df.country$n - n)
+df.country <- df.country %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.ctry <- c("USA", "New Zealand", "Other", "Australia", 
+                 "Republic of Ireland", "Canada", "UK")
+
+levels.ctry <- c(-0.57009, -0.46841, -0.28519, -0.09765, 
+                 0.21128, 0.24923, 0.96082)
+
+plotCountryProp <- df.country %>% 
+  ggplot(aes(x = factor(Country, 
+                        levels = levels.ctry, 
+                        labels = labels.ctry), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Country",
+       x = "",
+       y = "") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.title.x=element_blank())
+
+plotCountry <- df.train %>% 
+  ggplot(aes(factor(Country, 
+                    labels = labels.ctry, 
+                    levels = levels.ctry))) + 
+  geom_histogram(stat = "count", 
+                 position = "dodge",
+                 aes(fill = Used)) +
+  labs(title = "Country",
+       x = "",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE)
+
+```
+
+```{r ethnicity analysis, message=FALSE, warning=FALSE, paged.print=FALSE}
+df.eth <- df.train %>% group_by(Ethnicity) %>% summarize(n = n())
+temp <- df.train %>% 
+  group_by(Used, Ethnicity) %>% 
+  summarize(n = n()) %>% 
+  filter(Used == "1") %>% # Handle the case of "Mixed-Black/Asian"
+  select(n) %>% 
+  mutate(n = df.eth$n - n)
+df.eth <- df.eth %>% mutate(No = temp$n, prop_no = No/n)
+
+# Plot
+labels.eth <- c("Black", "Asian", "White", "Mixed-White/Black", 
+                "Other","Mixed-White/Asian", "Mixed-Black/Asian")
+
+levels.eth <- c(-1.10702, -0.50212, -0.31685, -0.22166, 
+                0.11440, 0.12600, 1.90725)
+
+plotEthProp <- df.eth %>% 
+  ggplot(aes(x = factor(Ethnicity, 
+                        levels = levels.eth, 
+                        labels = labels.eth), 
+             y = prop_no)) + 
+  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+  labs(title = "Ethnicity",
+       x = "",
+       y = "") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) +
+  theme(axis.title.x=element_blank())
+
+plotEth <- df.train %>% 
+  ggplot(aes(factor(Ethnicity, 
+                    labels = labels.eth, 
+                    levels = levels.eth))) + 
+  geom_histogram(stat = "count", position = "dodge",
+                 aes(fill = Used)) +
+  labs(title = "Ethnicity",
+       x = "",
+       y = "")  +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"), 
+                    guide = FALSE) 
+```
+
+```{r demographic distribution plot, message=FALSE, paged.print=FALSE}
+# Distribution:
+grid.arrange(plotCountry, plotGender, plotEth,
+             plotAge, plotEdu,
+             nrow = 2,
+             top = "Use of cannabis in training set by:",
+             left = "Counts")
+
+# Free up memory (but keep Gender)
+rm(plotCountry, plotEdu, plotEth, plotAge)
+```
+
+```{r demographic proportion plot, message=FALSE, paged.print=FALSE}
+# Proportions:
+grid.arrange(plotCountryProp, plotGenderProp, plotEthProp,
+             plotAgeProp, plotEduProp,
+             nrow = 2,
+             top = "Proportion of cannabis non-users in training set by:",
+             left = "Proportion",
+             bottom = "Higher value = lower use")
+
+# Free up memory (but keep Gender)
+rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp)
 ```
 
 \newpage
@@ -641,11 +963,19 @@ rm(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot, AscoreDensityPlot,
    CscoreDensityPlot, ImpDensityPlot, SSDensityPlot)
 ```
 
-The density plots show some measure of difference between users and non-users particularly as it relates to openness to experience, agreeableness, conscientiopusness, impuslivity and seeeking sensations. However, Neuroticism and extraversion do not seem to play much of a role. We will examine in the modeling section whether that is indee the case.
+The density plots show some measure of difference between users and non-users particularly as it relates to openness to experience, agreeableness, conscientiousness, impulsivity, and seeking sensations. However, it is difficult to distinguish users from non-users when it comes to neuroticism and extraversion. We will examine in the modeling section below whether that is indeed the case.
 
 \newpage
+
 ## C: Modeling
+
+We seek a model which improves on the ratio of users to the population (`r users/population`). This constitutes the baseline above which predictive modeling becomes interesting.
+
+### Recursive Feature elimination
+For RFE as well as subsequent modeling, we use the k-fold cross validation method which involves splitting the dataset into k subsets. The algorithm holds aside one of the subsets while the model is trained on the others. This process is repeated a predetermined number of times and the overall accuracy estimate is provided.
 
 # Results
 
 # Conclusion
+
+Noise introduced by the segmentation of data into very small groups.

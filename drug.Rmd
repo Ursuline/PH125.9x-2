@@ -111,9 +111,11 @@ This report consists of two main sections:
 
   - After applying a Recursive feature elimination algotirhm to remove predictors that do not contribute significantly to the outcome, we build models based on the following methods:
   - Generalized linear model
+  - Generalized linear model with penalized maximum likelihood (GLMnet)
   - Decision tree 
   - Random forest
   - Stochastic gradient boosting
+  - Neural network
 
 We compare the modeling approaches, both in terms of accuracy and coherence with the data analysis.
 

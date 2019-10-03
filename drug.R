@@ -66,6 +66,8 @@ dim(df.train)
 dim(df.test)
 str(df.train)
 df.train %>% dim()
+
+featurePlot(x=df.train[,1:4], y=df.train[,5], plot="pairs", auto.key=list(columns=3))
 # 78% used / 22% didn't
 prop.table(table(df.train$Used))
 
@@ -604,8 +606,6 @@ grid.arrange(plotCountryProp, plotEduProp, plotEthProp,
 # Free up memory 
 rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp, plotAgeProp)
 
-
-
 # C: Personality analyses
 #   1. Neuroticism (N-score)  ####
 NscoreDensityPlot <- df.train %>% 
@@ -718,7 +718,6 @@ grid.arrange(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot,
 rm(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot, AscoreDensityPlot, 
    CscoreDensityPlot, ImpDensityPlot, SSDensityPlot)
 
-
 # MODELING ####
 
 # Feature selection with recursive feature elimination #####
@@ -726,7 +725,7 @@ names(df.train)
 names(df.test)
 # Wrapper for the RFE algorithm
 rfe_drug <- function(df, outcomeName){ 
-    # Remove the id column
+  # Remove the id column
   df <- df %>% select(-Id) 
 
   #Make the Used class a factor
@@ -776,13 +775,13 @@ predictors <- predictors(rfe_Profile)
 length(predictors)
 
 display_model <- function(model, plot_title){
-  varImp(object = model) # Variable importance
   print(model)
-  #plot(model)
-  plot(varImp(object = model), main = plot_title, top = 12)
+  plot(varImp(object = model), 
+       main = plot_title, 
+       top = 12)
 }
 
-# Prediction
+# Prediction -> get rid of this
 run_prediction_old <- function(df.test, model, predictors) {
   predictions <- predict.train(object = model, 
                                df.test[,predictors], 
@@ -823,9 +822,44 @@ max(model.glm$results$Accuracy) # Fit to training data
 CM.glm <- confusionMatrix(predict(model.glm, newdata = df.test), df.test$Used)
 CM.glm$overall["Accuracy"] # Fit to test data
 
-# Decision tree ####
+# Generalized linear model with penalized maximum likelihood ####
+# GLMnet without parameter tuning
+set.seed(35)
+model.glmnet.base <- train(df.train[,predictors], 
+                   as.factor(df.train[,outcomeName]), 
+                   method = 'glmnet', 
+                   metric = 'Accuracy')
+
+# Generalized Linear Model
+display_model(model.glmnet.base, "GLMnet - Variable Importance (no tuning)")
+max(model.glmnet.base$results$Accuracy) # Fit to training data
+model.glmnet.base
+
+CM.glmnet.base <- confusionMatrix(predict(model.glmnet.base, newdata = df.test), df.test$Used)
+CM.glmnet.base$overall["Accuracy"] # Fit to test data
+
+# GLMnet with parameter tuning
+grid.glmnet <- expand.grid(
+  alpha = seq(from = 0, to = .15, length = 25),
+  lambda = seq(0, .01, length = 25)
+)
+set.seed(35)
+model.glmnet <- train(df.train[,predictors],
+                     as.factor(df.train[,outcomeName]), 
+                     method = "glmnet",
+                     trControl = fitControl,
+                     tuneGrid = grid.glmnet, 
+                     metric = "Accuracy")
+display_model(model.glmnet, "GLMnet - Variable Importance")
+model.glmnet
+max(model.glmnet$results$Accuracy) # Fit to training data
+
+CM.glmnet <- confusionMatrix(predict(model.glmnet, newdata = df.test), df.test$Used)
+CM.glmnet$overall["Accuracy"] # Fit to test data
+
+# Decision trees ####
 set.seed(90)
-# Without parameter tuning
+# RPART Without parameter tuning
 model.rpart.base <- train(df.train[,predictors], 
                           as.factor(df.train[,outcomeName]), 
                           method = 'rpart', 
@@ -839,13 +873,13 @@ CM.rpart.base <- confusionMatrix(predict(model.rpart.base, newdata = df.test), d
 CM.rpart.base$overall["Accuracy"] # Fit to test data
 
 set.seed(80)
-# With parameter tuning 
+# RPART With parameter tuning 
 model.rpart <- train(df.train[,predictors],
                      as.factor(df.train[,outcomeName]), 
                      method = "rpart",
                      trControl = fitControl,
                      tuneLength = 500, 
-                     parms = list(split='information'))
+                     parms = list(split = 'information'))
 
 display_model(model.rpart, "Decision Tree - Variable Importance")
 model.rpart
@@ -871,23 +905,21 @@ CM.rf.base <- confusionMatrix(predict(model.rf.base, newdata = df.test), df.test
 CM.rf.base$overall["Accuracy"] # Fit to test data
 
 # RF with parameter tuning
-grid.rf <- expand.grid(mtry = seq(1, 20))
-set.seed(26)
+grid.rf <- expand.grid(mtry = seq(1, 10))
+set.seed(25)
 model.rf <- train(df.train[,predictors], 
                   as.factor(df.train[,outcomeName]),
                   method = 'rf',
                   data = df.train,
                   tuneGrid = grid.rf)
 display_model(model.rf, "RF - Variable Importance")
-model.rf$finalModel
+model.rf
 max(model.rf$results$Accuracy) # Fit to training data
 
 CM.rf <- confusionMatrix(predict(model.rf, newdata = df.test), df.test$Used)
 CM.rf$overall["Accuracy"] # Fit to test data
 
-# Stochastic Gradient boosting
-
-# Stochastic Gradient Boosting
+# Stochastic Gradient Boosting ####
 # GBM without parameter tuning
 set.seed(5)
 model.gbm.base <- train(df.train[,predictors], 
@@ -902,39 +934,98 @@ CM.gbm.base$overall["Accuracy"] # Fit to test data
 
 # GBM with parameter tuning
 max.depth <- floor(sqrt(NCOL(df.train)))
-grid.gbm <- expand.grid(n.trees = seq(50, 300, 10),
-                        shrinkage = seq(.01, .11, .02),
-                        n.minobsinnode = seq(3, 10),
-                        interaction.depth = seq(2, max.depth))
-set.seed(9)
+# The grid values below were determined after many iterations
+grid.gbm <- expand.grid(n.trees = seq(195, 218, 1),
+                        shrinkage = seq(.01, .04, .01),
+                        n.minobsinnode = 8,
+                        interaction.depth = 3)
+set.seed(5)
 model.gbm <- train(df.train[,predictors],
                    as.factor(df.train[,outcomeName]),
                    method = 'gbm',
                    trControl = fitControl,
                    tuneGrid = grid.gbm)
 display_model(model.gbm, "GBM - Variable Importance")
-model.gbm$finalModel
+model.gbm
 max(model.gbm$results$Accuracy) # Fit to training data
 
 CM.gbm <- confusionMatrix(predict(model.gbm, newdata = df.test), df.test$Used)
 CM.gbm$overall["Accuracy"] # Fit to test data
 
+
+# Neural network ####
+# NNET without parameter tuning
+set.seed(125)
+model.nnet.base <- train(df.train[,predictors], 
+                        as.factor(df.train[,outcomeName]), 
+                        method = 'nnet', 
+                        metric = 'Accuracy')
+display_model(model.nnet.base, "Neural network - Variable Importance (no parameter tuning)")
+max(model.nnet.base$results$Accuracy) # Fit to training data
+model.nnet.base
+
+CM.nnet.base <- confusionMatrix(predict(model.nnet.base, newdata = df.test), df.test$Used)
+CM.nnet.base$overall["Accuracy"] # Fit to test data
+
+# NNET with parameter tuning
+grid.nnet <- expand.grid(size = c(1:6),
+                         decay = seq(0.1, 0.5, 0.1))
+set.seed(125)
+model.nnet <- train(df.train[,predictors],
+                   as.factor(df.train[,outcomeName]),
+                   method = 'nnet',
+                   trControl = fitControl,
+                   tuneGrid = grid.nnet)
+display_model(model.nnet, "NNET - Variable Importance")
+max(model.nnet$results$Accuracy) # Fit to training data
+model.nnet
+
+CM.nnet <- confusionMatrix(predict(model.nnet, newdata = df.test), df.test$Used)
+CM.nnet$overall["Accuracy"] # Fit to test data
+
+# Model summary table ####
+
+# Compare base model performances using resample()
+models.compare.base <- resamples(list(GLM = model.glm.base, RPART = model.rpart.base, RF = model.rf.base, GBM = model.gbm.base, NNET = model.nnet.base))
+# Summary of the models performances
+summary(models.compare.base)
+
 model.fit <- tibble(
   method = c("GLM", 
+             "GLMnet (no tuning)", "GLMnet",
              "RPART (no tuning)", "RPART", 
              "RF (no tuning)", "RF", 
-             "GBM (no tuning)"),
-  accuracy = c(CM.glm$overall["Accuracy"], 
-               CM.rpart$overall["Accuracy"], 
-               CM.rpart.base$overall["Accuracy"],
-               CM.rf$overall["Accuracy"],
-               CM.rf.base$overall["Accuracy"],
-               CM.gbm.base$overall["Accuracy"]))
-model.fit
+             "GBM (no tuning)", "GBM",
+             "NNET (no tuning)", "NNET"),
+  train = c(max(model.glm$results$Accuracy),
+            max(model.glmnet.base$results$Accuracy), max(model.glmnet$results$Accuracy),
+            max(model.rpart.base$results$Accuracy), max(model.rpart$results$Accuracy), 
+            max(model.rf.base$results$Accuracy), max(model.rf$results$Accuracy), 
+            max(model.gbm.base$results$Accuracy), max(model.gbm$results$Accuracy),
+            max(model.nnet.base$results$Accuracy), max(model.nnet$results$Accuracy)),
+  test = c(CM.glm$overall["Accuracy"], 
+           CM.glmnet.base$overall["Accuracy"], CM.glmnet$overall["Accuracy"],
+           CM.rpart.base$overall["Accuracy"], CM.rpart$overall["Accuracy"], 
+           CM.rf.base$overall["Accuracy"], CM.rf$overall["Accuracy"],
+           CM.gbm.base$overall["Accuracy"], CM.gbm$overall["Accuracy"],
+           CM.nnet.base$overall["Accuracy"], CM.nnet$overall["Accuracy"]))
+
+model.fit %>% ggplot(aes(reorder(x = method, test), y = test)) + 
+  geom_bar(stat = "identity", aes(color = I(color), fill = I(fill))) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+  labs(title = "Model comparison",
+       x = "",
+       y = "Fit to test set")+ 
+  geom_text(aes(label = sprintf("%0.2f%%", round(test*100, digits = 1)), hjust = 1.25),  
+            size=4, 
+            color = "white") +
+  scale_y_continuous(breaks = seq(0, 1, .1), 
+                     labels = scales::percent_format(accuracy = 1)) + 
+  coord_flip()
 
 save.image(file='environment.RData')
 
-# Grading Rubric
+# Grading Rubric ####
 # Files (5 points possible)
 # The appropriate files are submitted in the correct formats: a report in both PDF and Rmd format and an R script in R format.
 # 

@@ -125,7 +125,8 @@ grid.arrange(p2, p1,
 df.train <- df.train %>% select(-Cannabis)
 df.test <- df.test %>% select(-Cannabis)
 
-# A: Demographic analysis (before re-binning)
+# A: Demographic analysis (before re-binning)####
+
 #   1. Age ####
 
 df.age <- df.train %>% group_by(Age) %>% summarize(n = n())
@@ -607,7 +608,14 @@ grid.arrange(plotCountryProp, plotEduProp, plotEthProp,
 rm(plotCountryProp, plotEduProp, plotEthProp, plotAgeProp, plotAgeProp)
 
 # C: Personality analyses
+breaks <- seq(-3, 3, .5)
+angle <- 35
 #   1. Neuroticism (N-score)  ####
+
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Nscore))
+
 NscoreDensityPlot <- df.train %>% 
   ggplot(aes(x = Nscore, fill = Used, color = I(color))) +
   geom_density(alpha = alpha) +
@@ -619,9 +627,18 @@ NscoreDensityPlot <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
                     guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   2. Extraversion (E-score)  ####
+
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Escore))
+
 EscoreDensityPlot <- df.train %>% 
   ggplot(aes(x = Escore, fill = Used, color = I(color))) +
   geom_density(alpha = alpha) +
@@ -633,9 +650,17 @@ EscoreDensityPlot <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
                     guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   3. Openness to experience (O-score)  ####
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Oscore))
+
 OscoreDensityPlot <- df.train %>% 
   ggplot(aes(x = Oscore, fill = Used, color = I(color))) +
   geom_density(alpha = alpha) +
@@ -647,9 +672,16 @@ OscoreDensityPlot <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
                     guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   4. Agreeableness (A-score) ####
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Ascore))
 
 AscoreDensityPlot <- df.train %>% 
   ggplot(aes(x = Ascore, fill = Used, color = I(color))) +
@@ -662,9 +694,17 @@ AscoreDensityPlot <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
                     guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   5. Conscientiousness (C-score) ####
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Cscore))
+
 CscoreDensityPlot <- df.train %>% 
   ggplot(aes(x = Cscore, fill = Used, color = I(color))) +
   geom_density(alpha = alpha) +
@@ -676,9 +716,16 @@ CscoreDensityPlot <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
                     guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5)) 
+  scale_y_continuous(limits = c(0, .5)) +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   6. Impulsiveness ####
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Impulsive))
 
 ImpDensityPlot <- df.train %>% 
   ggplot(aes(x = Impulsive, fill = Used, color = I(color))) +
@@ -691,9 +738,17 @@ ImpDensityPlot <- df.train %>%
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
                     guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5)) 
+  scale_y_continuous(limits = c(0, .5)) +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   7. Sensation-seeking ####
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(SS))
+
 SSDensityPlot <- df.train %>% 
   ggplot(aes(x = SS, fill = Used, color = I(color))) +
   geom_density(alpha = alpha) +
@@ -703,17 +758,23 @@ SSDensityPlot <- df.train %>%
   scale_fill_manual(name = "Used?", 
                      values = c("0" = used_colors[1], "1" = used_colors[2]), 
                      labels = c("No", "Yes")) +
-  scale_y_continuous(limits = c(0, .5)) 
+  scale_y_continuous(limits = c(0, .5)) +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
 
 #   Personality summary plot ####
-grid.arrange(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot,
-             AscoreDensityPlot, CscoreDensityPlot, ImpDensityPlot,
-             SSDensityPlot,
-             nrow = 3,
-             top = "Cannabis use as a fuction of:",
-             left = "Density"
-)
-
+# grid.arrange(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot,
+#              AscoreDensityPlot, CscoreDensityPlot, ImpDensityPlot,
+#              SSDensityPlot,
+#              nrow = 3,
+#              top = "Cannabis use as a fuction of:",
+#              left = "Density"
+# )
+grid.arrange(arrangeGrob(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot,
+                         AscoreDensityPlot, CscoreDensityPlot, ImpDensityPlot, nrow=3), 
+             SSDensityPlot, heights=c(3/4, 1/4), ncol=1, nrow=2)
 # Free up memory
 rm(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot, AscoreDensityPlot, 
    CscoreDensityPlot, ImpDensityPlot, SSDensityPlot)

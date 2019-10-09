@@ -538,78 +538,22 @@ For RFE as well as subsequent modeling, we use the k-fold cross validation metho
 plot.profile.rfe
 ```
 
+After the RFE, we retain `r length(predictors)` predictors: 
+`r predictors`
+
 ```{r rfe importance plot, message=FALSE, paged.print=FALSE}
 plot.importance.rfe
 ```
 
 The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution plots: among the personality trait tests, N-score and E-score contribute the least while seeking sensation and O-score contribute the most. However, the impulsivity doesn't seem to be as strong a factor as one might have expected from the density plots.
 
-```{r training parameters, message=FALSE, paged.print=FALSE}
-# Training parameters
-fitControl <- trainControl( 
-  method = "repeatedcv", # Repeated k-fold Cross-Validation
-  number = 3, # 5 for debugging CHANGE TO 10-fold CV
-  repeats = 3, # 5 for debugging CHANGE TO 10 repeats
-  allowParallel = TRUE,
-  verbose = FALSE
-)
-```
-
-### Generalized linear model
-```{r glm, message=FALSE, warning=FALSE, paged.print=FALSE}
-plot.varImp.glm
-```
-### Generalized linear model with penalized maximum likelihood
-```{r glmnet , message=FALSE, warning=FALSE, paged.print=FALSE}
-# GLMnet without parameter tuning
-plot.varImp.glmnet.base
-
-# GLMnet with parameter tuning
-plot.varImp.glmnet
-```
-
-### Decision trees
-```{r decision trees, message=FALSE, warning=FALSE, paged.print=FALSE}
-# RPART Without parameter tuning
-plot.varImp.rpart.base
-# RPART With parameter tuning 
-plot.varImp.rpart
-```
-
-### Random forest
-```{r random forest, message=FALSE, warning=FALSE, paged.print=FALSE}
-# RF without parameter tuning
-plot.varImp.rf.base
-
-# RF with parameter tuning
-plot.varImp.rf
-```
-
-### Stochastic Gradient Boosting 
-```{r gbm, message=FALSE, warning=FALSE, paged.print=FALSE}
-# GBM without parameter tuning
-plot.varImp.gbm.base
-
-# GBM with parameter tuning
-plot.varImp.gbm
-```
-
-### Neural network
-```{r nnet base, message=FALSE, warning=FALSE, paged.print=FALSE}
-# NNET without parameter tuning
-plot.varImp.nnet.base
-
-# NNET with parameter tuning
-plot.varImp.nnet
-```
-
 ### Model comparisons
-```{r variable importance plots, message=FALSE, paged.print=FALSE}
+```{r variable importance plots, fig.height=10, fig.width=8, message=FALSE, paged.print=FALSE}
 #Variable importance
 grid.arrange(plot.varImp.glm, plot.varImp.glmnet,
              plot.varImp.rpart, plot.varImp.rf,
              plot.varImp.gbm, plot.varImp.nnet,
-             nrow = 2,
+             nrow = 3,
              top = "Model predictor importance",
              left = "Predictor",
              bottom = "Importance"
@@ -624,6 +568,8 @@ plot.model.fit
 
 GBM: Little importance is given to the education variable.
 Improvement analysis -> what did the use of ML contribute
+
+Demographics have more impact than personality
 
 # Conclusion
 

@@ -16,7 +16,7 @@ if(!require(gbm)) install.packages("gbm", repos = "http://cran.us.r-project.org"
 
 # Load data ####
 # Remote / local flag
-remote <- 1
+remote <- 0
 
 if(remote == 1) { # Load data file from github repository
   df.raw <- read.table("https://raw.githubusercontent.com/Ursuline/PH125.9x-2/master/data/drug_consumption.csv", 
@@ -55,7 +55,7 @@ trainIndex <- createDataPartition(df.raw$Used,
 df.train <- df.raw[ trainIndex,]
 df.test  <- df.raw[-trainIndex,]
 # B: Data exploration
-#   Global plot parameters ####
+#     Global plot parameters ####
 fill <- 'skyblue3'
 color <- 'grey'
 fill_no <- "#af8dc3"
@@ -63,7 +63,7 @@ fill_yes <- "#7fbf7b"
 used_colors <- c(fill_no, fill_yes) # No/Yes
 alpha <- 0.4 # alpha-blending
 axis_text_size <- 10
-#   Class distribution plot ####
+#   1. Class distribution plot ####
 title <- paste("Frequency of cannabis use: ", 
                "training set (", as.character(dim(df.train)[1]), 
                "participants)")
@@ -76,7 +76,7 @@ plot.use <- df.train %>%
   labs(title = title, x = "", y = "count") +
   scale_x_discrete(labels = c("Never used", "Used"))
 plot.use
-#   Balloon plot utility ####
+#     Balloon plot utility ####
 balloon.plot <- function(cont, title){
   balloon_melted<-melt(cont, sort=F)
   ggplot(balloon_melted, 
@@ -90,22 +90,22 @@ balloon.plot <- function(cont, title){
     scale_size_area(max_size=20) +
     labs(x="", y="", title = title)
 }
-#   Contingency plots prior to re-binning (balloon plots) ####
-#     Age contingency plot ####
+#   2. Contingency plots prior to re-binning (balloon plots) ####
+#     a. Age contingency plot ####
 cont.age <- table(df.train$Age, df.train$Used)
 colnames(cont.age) <- c("Not used", "Used")
 rownames(cont.age) <- c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")
 
-balloon.plot(cont.age, "Age group")
+plot.balloon.age <- balloon.plot(cont.age, "Age group")
 
-#     Gender contingency plot ####
+#     b. Gender contingency plot ####
 cont.gender <- table(df.train$Gender, df.train$Used)
 colnames(cont.gender) <- c("Not used", "Used")
 rownames(cont.gender) <- c("male", "female")
 
-balloon.plot(cont.gender, "Gender")
+plot.balloon.gender <- balloon.plot(cont.gender, "Gender")
 
-#     Education contingency plot ####
+#     c. Education contingency plot ####
 cont.edu <- table(df.train$Education, df.train$Used)
 colnames(cont.edu) <- c("Not used", "Used")
 rownames(cont.edu) <- c("Left school before 16 yo", 
@@ -117,21 +117,23 @@ rownames(cont.edu) <- c("Left school before 16 yo",
                         "Univ. degree", 
                         "Masters degree",
                         "Doctorate degree")
-balloon.plot(cont.edu, "Education")
 
-#     Country contingency plot ####
+plot.balloon.edu <- balloon.plot(cont.edu, "Education")
+
+#     d. Country contingency plot ####
 cont.country <- table(df.train$Country, df.train$Used)
 colnames(cont.country) <- c("Not used", "Used")
 rownames(cont.country) <- c("USA", "New Zealand", "Other", "Australia", 
                             "Republic of Ireland", "Canada", "UK")
-balloon.plot(cont.country, "Country")
 
-#     Ethnicity contingency plot ####
+plot.balloon.country <- balloon.plot(cont.country, "Country")
+
+#     e. Ethnicity contingency plot ####
 cont.ethn <- table(df.train$Ethnicity, df.train$Used)
 colnames(cont.ethn) <- c("Not used", "Used")
 rownames(cont.ethn) <- c("Black", "Asian", "White", "Mixed-White/Black", 
                          "Other","Mixed-White/Asian", "Mixed-Black/Asian")
-balloon.plot(cont.ethn, "Ethnicity")
+plot.balloon.ethn <- balloon.plot(cont.ethn, "Ethnicity")
 
 #   Re-bin the data ####
 df.train <- 
@@ -149,7 +151,7 @@ df.test <-
   mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, # Dropped school
                             ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD 
   mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
-# Contingency plot utility ####
+#   3. Contingency plot utilities ####
 demogPlot <- function(title, labels, x_axis_title){
   dP <- df.train %>%
     ggplot(aes(factor(.[,title]))) +
@@ -167,19 +169,32 @@ demogPlot <- function(title, labels, x_axis_title){
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   return(dP)
 }
+propPlot <- function(cont, labels, title){
+    plot <- cont %>%
+      ggplot(aes(x = labels, y = Never_used/Used)) +
+      geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
+      scale_x_discrete(labels = labels)  +
+      labs(title = title,
+           x = "",
+           y = "") +
+      scale_y_continuous(breaks = seq(0, 1, .1),
+                         labels = scales::percent_format(accuracy = 1)) +
+      theme(text = element_text(size = axis_text_size))
+    return(plot)
+  }
 
-# Contingency plots ####
-#   Age contingency plot ####
+#   4. Contingency plots ####
+#     a. Age contingency plot ####
 title.age <- "Age"
 labels.age <- c("18-24", "25-34", "35-44", "45-54", "55+")
 plot.age <- demogPlot(title.age, labels.age, "years old")
 
-#   Gender contingency plot ####
+#     b. Gender contingency plot ####
 title.gender <- "Gender"
 labels.gender <- c("male", "female")
 plot.gender <- demogPlot(title.gender, labels.gender, "")
 
-#   Education contingency plot ####
+#     c. Education contingency plot ####
 title.edu <- "Education"
 labels.edu <- c("Left school as teen", 
                 "Some college/univ.", 
@@ -188,17 +203,17 @@ labels.edu <- c("Left school as teen",
                 "Graduate degree")
 plot.edu <- demogPlot(title.edu, labels.edu, "")
 
-#   Country contingency plot ####
+#     d. Country contingency plot ####
 title.country <- "Country"
 labels.country <- c("USA", "Other", "UK")
 plot.country <- demogPlot(title.country, labels.country, "")
 
-#   Ethnicity contingency plot ####
+#     e. Ethnicity contingency plot ####
 title.ethn <- "Ethnicity"
 labels.ethn <- c("White", "Non-white")
 plot.ethn <- demogPlot(title.ethn, labels.ethn, "")
 
-#   Combine the 5 contingency plots ####
+#     f. Combine the 5 contingency plots ####
 grid.arrange(plot.country, plot.gender, plot.ethn,
              plot.age, plot.edu,
              layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
@@ -206,7 +221,5 @@ grid.arrange(plot.country, plot.gender, plot.ethn,
              top = "Use of cannabis in training set by:",
              left = "Counts")
 
-# Free up memory
-rm(plot.country, plot.gender, plot.ethn, plot.age, plot.edu)
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')

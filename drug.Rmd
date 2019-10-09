@@ -4,10 +4,10 @@ subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     number_sections: no
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -40,7 +40,7 @@ load("drugEnvironment.RData")
 
 ```{r load data, message=TRUE, warning=TRUE}
 # Remote / local flag
-remote <- 1
+remote <- 0
 
 if(remote == 1) { # Load data file from github repository
   df.raw <- read.table("https://raw.githubusercontent.com/Ursuline/PH125.9x-2/master/data/drug_consumption.csv", 
@@ -76,7 +76,7 @@ To do so, we build and assess the effectiveness of six machine learning classifi
 The original dataset is found on the [UCI machine learning repository](https://archive.ics.uci.edu/ml/datasets/Drug+consumption+%28quantified%29).
 It is based the research paper by E. Fehrman, A. K. Muhammad, E. M. Mirkes, V. Egan and A. N. Gorban, ["The Five Factor Model of personality and evaluation of drug consumption risk.," arXiv, 2015](https://arxiv.org/abs/1506.06297). The data was collected from 1885 English-speaking participants over 18 years of age between March 2011 and March 2012.
 
-In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Never Used' (the original predictor) and 'Used' (the combination of the others).
+In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Never Used' (the original predictor) and 'Used' (the combination of the others, representing people having used cannabis at least once in their lifetime).
 
 The original dataset includes answers to questions related to the use of alcohol, amphetamines, amyl nitrite, benzodiazepines, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, magic mushrooms, nicotine and volatile substance abuse (VSA)) and one fictitious drug (Semeron) which was introduced to identify over-claimers. In the present study, we restrict our scope to the analysis of cannabis consumption.
 
@@ -167,86 +167,28 @@ axis_text_size <- 10
 
 #### Class distribution
 ```{r overall consumption, message=FALSE, warning=FALSE, paged.print=FALSE}
-title <- paste("Frequency of cannabis use: ", 
-               "training set (", as.character(dim(df.train)[1]), 
-               "participants)")
-
-df.train %>% 
-  ggplot(aes(Used)) + 
-  geom_histogram(stat = "count", 
-                 aes(fill = I(fill), 
-                     color = I(color))) +
-  labs(title = title, x = "", y = "count") +
-  scale_x_discrete(labels = c("Never used", "Used"))
+plot.use
 ```
 
-The training set consists of `r df.train %>% filter(Used == 1) %>% nrow()` participants having used cannabis at some pioint in the past and `r df.train %>% filter(Used == 0) %>% nrow()` participants who haven't.
+The training set consists of `r df.train %>% filter(Used == 1) %>% nrow()` participants having used cannabis at some pioint in the past and `r df.train %>% filter(Used == 0) %>% nrow()` participants who haven't for a user-to-non-user ratio of ratio of 1:`r df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow()`.
 
 ### Contingency plots (prior to binning)
-```{r balloon plot utility, message=FALSE, paged.print=FALSE}
-# Nicer plot than gplots balloonplot
-balloon.plot <- function(cont, title){
-  balloon_melted<-melt(cont, sort=F)
-  ggplot(balloon_melted, 
-         aes(x =Var2, y = Var1)) +
-    geom_point( aes(size=value),
-                shape = 21, 
-                colour = color, 
-                fill = fill)+
-    theme(panel.background=element_blank(), 
-          panel.border = element_rect(colour = color, fill = NA, size = 1))+
-    scale_size_area(max_size=20) +
-    labs(x="", y="", title = title)
-}
-```
 
 #### Cannabis use by demographic group
 ```{r contingency plots before binning, fig.height=5, fig.width=8, message=FALSE, paged.print=FALSE}
-# Age contingency plot ####
-cont.age <- table(df.train$Age, df.train$Used)
-colnames(cont.age) <- c("Not used", "Used")
-rownames(cont.age) <- c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")
-
-balloon.plot(cont.age, "Age group")
-
-# Gender contingency plot ####
-cont.gender <- table(df.train$Gender, df.train$Used)
-colnames(cont.gender) <- c("Not used", "Used")
-rownames(cont.gender) <- c("male", "female")
-
-balloon.plot(cont.gender, "Gender")
-
-# Education contingency plot ####
-cont.edu <- table(df.train$Education, df.train$Used)
-colnames(cont.edu) <- c("Not used", "Used")
-rownames(cont.edu) <- c("Left school before 16 yo", 
-                           "Left school at 16 yo", 
-                           "Left school at 17 yo", 
-                           "Left school at 18 yo", 
-                           "Some college/univ.", 
-                           "Prof. certif./diploma",
-                           "Univ. degree", 
-                           "Masters degree",
-                           "Doctorate degree")
-balloon.plot(cont.edu, "Education")
-
-# Country contingency plot ####
-cont.country <- table(df.train$Country, df.train$Used)
-colnames(cont.country) <- c("Not used", "Used")
-rownames(cont.country) <- c("USA", "New Zealand", "Other", "Australia", 
-                            "Republic of Ireland", "Canada", "UK")
-balloon.plot(cont.country, "Country")
-
-# Ethnicity contingency plot ####
-cont.ethn <- table(df.train$Ethnicity, df.train$Used)
-colnames(cont.ethn) <- c("Not used", "Used")
-rownames(cont.ethn) <- c("Black", "Asian", "White", "Mixed-White/Black", 
-                         "Other","Mixed-White/Asian", "Mixed-Black/Asian")
-balloon.plot(cont.ethn, "Ethnicity")
-
+# Age contingency plot 
+plot.balloon.age
+# Gender contingency plot 
+plot.balloon.gender
+# Education contingency plot 
+plot.balloon.edu
+# Country contingency plot 
+plot.balloon.country
+# Ethnicity contingency plot 
+plot.balloon.ethn
 ```
 
-The dataset of `r df.train %>% nrow()` participants is dominated by young and educated white American and British participants of both sexes.
+We note that the dataset of `r df.train %>% nrow()` participants is dominated by young and educated white American and British participants of both sexes.
 
 #### Binning
 The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information:
@@ -275,82 +217,13 @@ df.test <-
 ```
 
 ### Analysis of demographics
-```{r prop plot, message=FALSE, paged.print=FALSE}
-prop_plot <- function(cont, labels, title) {
-plotProp <- cont %>%
-  ggplot(aes(x = labels, y = Never_used/Used)) +
-  geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
-  scale_x_discrete(labels = labels)  +
-  labs(title = title,
-       x = "",
-       y = "") +
-  scale_y_continuous(breaks = seq(0, 1, .1),
-                     labels = scales::percent_format(accuracy = 1)) +
-  theme(text = element_text(size = axis_text_size))
-return(plotProp)
-}
-```
-
-```{r contingency utility, message=FALSE, warning=FALSE, paged.print=FALSE}
-demogPlot <- function(title, labels, x_axis_title){
-  dP <- df.train %>%
-  ggplot(aes(factor(.[,title]))) +
-  geom_histogram(stat = "count",
-                 position = "dodge",
-                 aes(fill = Used)) +
-  scale_x_discrete(labels = labels) +
-  labs(title = title,
-       x = x_axis_title,
-       y = "") +
-  scale_fill_manual(values = c("0" = used_colors[1],
-                               "1" = used_colors[2]),
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  return(dP)
-}
-```
-
-```{r contingency plots, message=FALSE, warning=FALSE, paged.print=FALSE}
-# Age contingency plot ####
-title.age <- "Age"
-labels.age <- c("18-24", "25-34", "35-44", "45-54", "55+")
-plot.age <- demogPlot(title.age, labels.age, "years old")
-
-# Gender contingency plot ####
-title.gender <- "Gender"
-labels.gender <- c("male", "female")
-plot.gender <- demogPlot(title.gender, labels.gender, "")
-
-# Education contingency plot ####
-title.edu <- "Education"
-labels.edu <- c("Left school as teen", 
-                "Some college/univ.", 
-                "Prof. certif./diploma",
-                "Univ. degree", 
-                "Graduate degree")
-plot.edu <- demogPlot(title.edu, labels.edu, "")
-
-# Country contingency plot ####
-title.country <- "Country"
-labels.country <- c("USA", "Other", "UK")
-plot.country <- demogPlot(title.country, labels.country, "")
-
-# Ethnicity contingency plot ####
-title.ethn <- "Ethnicity"
-labels.ethn <- c("White", "Non-white")
-plot.ethn <- demogPlot(title.ethn, labels.ethn, "")
-
-# Combine the 5 plots ####
+```{r contingency plot, message=FALSE, warning=FALSE, paged.print=FALSE}
 grid.arrange(plot.country, plot.gender, plot.ethn,
              plot.age, plot.edu,
              layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
                                    c(4, 4, 4, 5, 5, 5)),
              top = "Use of cannabis in training set by:",
              left = "Counts")
-
-# Free up memory
-rm(plot.country, plot.gender, plot.ethn, plot.age, plot.edu)
 ```
 
 \newpage
@@ -476,7 +349,7 @@ CscoreDensityPlot <- df.train %>%
 
 ```
 ```{r impulsiveness, message=FALSE, paged.print=FALSE}
-# 6. Impulsiveness plot
+# Impulsiveness plot
 mean.score <- df.train %>% 
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Impulsive))
@@ -521,18 +394,13 @@ SSDensityPlot <- df.train %>%
 ```
 
 ```{r personality summary plot, message=FALSE, warning=FALSE, paged.print=FALSE}
-
-grid.arrange(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot,
-             AscoreDensityPlot, CscoreDensityPlot, ImpDensityPlot, SSDensityPlot,
+grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
+             plot.density.Ascore, plot.density.Cscore, plot.density.Imp, plot.density.SS,
              layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
                                    c(4, 4, 5, 5, 6, 6), 
                                    c(7, 7, 7, NA, NA, NA)),
              top = "Personality test score distribution",
              left = "Density")
-
-# Free-up memory
-rm(NscoreDensityPlot, EscoreDensityPlot, OscoreDensityPlot, AscoreDensityPlot,
-   CscoreDensityPlot, ImpDensityPlot, SSDensityPlot)
 ```
 
 The density plots show some measure of difference between users and non-users particularly as it relates to either openness to experience, agreeableness, conscientiousness, impulsivity, and sensation-seeking. 
@@ -646,7 +514,7 @@ rfe_drug <- function(df, outcomeName){
   # RFE controls
   control <- rfeControl(functions = rfFuncs,
                         method = "repeatedcv",
-                        repeats = 5, # Change to 10 for final run
+                        repeats = 3, # Change to 10 for final run
                         verbose = FALSE)
   # Exclude Class from the list of predictors
   predictors <- names(df)[!names(df) %in% outcomeName]
@@ -695,8 +563,8 @@ The comparative analysis of the contribution of each factor agrees by and large 
 # Training parameters
 fitControl <- trainControl( 
   method = "repeatedcv", # Repeated k-fold Cross-Validation
-  number = 5, # 5 for debugging CHANGE TO 10-fold CV
-  repeats = 5, # 5 for debugging CHANGE TO 10 repeats
+  number = 3, # 5 for debugging CHANGE TO 10-fold CV
+  repeats = 3, # 5 for debugging CHANGE TO 10 repeats
   allowParallel = TRUE,
   verbose = FALSE
 )
@@ -984,7 +852,8 @@ model.fit <- tibble(
 # Results
 
 GBM: Little importance is given to the education variable.
+Improvement analysis -> what did the use of ML contribute
 
 # Conclusion
 
-Noise introduced by the segmentation of data into very small groups.
+Scope -> having used once in lifetime may not be telling. Could be interesting to bin never with over ten years ago ?

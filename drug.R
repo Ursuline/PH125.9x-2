@@ -214,12 +214,251 @@ labels.ethn <- c("White", "Non-white")
 plot.ethn <- demogPlot(title.ethn, labels.ethn, "")
 
 #     f. Combine the 5 contingency plots ####
-grid.arrange(plot.country, plot.gender, plot.ethn,
+plot.contingency <- grid.arrange(plot.country, plot.gender, plot.ethn,
              plot.age, plot.edu,
              layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
                                    c(4, 4, 4, 5, 5, 5)),
              top = "Use of cannabis in training set by:",
              left = "Counts")
+
+#   5. Personality analysis
+#     Personality analysis plot parameters ####
+breaks <- seq(-3, 3, .5)
+angle <- 60
+#     a. Neuroticism ####
+# Neuroticism (N-score) plot
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Nscore))
+
+plot.density.Nscore <- df.train %>% 
+  ggplot(aes(x = Nscore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Neuroticism",
+       x = "N-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     b. Extraversion ####
+# Extraversion (E-score) plot
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Escore))
+
+plot.density.Escore <- df.train %>% 
+  ggplot(aes(x = Escore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Extraversion",
+       x = "E-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     c. Openness to experience ####
+# Openness to experience (O-score) plot 
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Oscore))
+
+plot.density.Oscore <- df.train %>% 
+  ggplot(aes(x = Oscore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Openness to experience",
+       x = "O-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     d. Agreeableness ####
+# Agreeableness (A-score) plot]
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Ascore))
+
+plot.density.Ascore <- df.train %>% 
+  ggplot(aes(x = Ascore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Agreeableness",
+       x = "A-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5))  +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     e. Conscientiousness ####
+# Conscientiousness (C-score) plot
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Cscore))
+
+plot.density.Cscore <- df.train %>% 
+  ggplot(aes(x = Cscore, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Conscientiousness",
+       x = "C-score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5)) +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     f. Impulsivity ####
+# Impulsivity plot
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(Impulsive))
+
+plot.density.Imp <- df.train %>% 
+  ggplot(aes(x = Impulsive, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Impulsivity",
+       x = "Impulsivity score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
+                    labels = c("No", "Yes"),
+                    guide = FALSE) +
+  scale_y_continuous(limits = c(0, .5)) +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     g. Sensation-seeking ####
+# Sensation-seeking plot
+mean.score <- df.train %>% 
+  group_by(Used) %>% 
+  dplyr::summarize(count = n(), mean = mean(SS))
+
+plot.density.SS <- df.train %>% 
+  ggplot(aes(x = SS, fill = Used, color = I(color))) +
+  geom_density(alpha = alpha) +
+  labs(title = "Seeking sensations",
+       x = "Sensation-seeking score",
+       y = "") +
+  scale_fill_manual(name = "Used?", 
+                    values = c("0" = used_colors[1], "1" = used_colors[2]), 
+                    labels = c("No", "Yes")) +
+  scale_y_continuous(limits = c(0, .5)) +
+  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+#     h. Personality plot ####
+plot.density.personality <- 
+  grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
+             plot.density.Ascore, plot.density.Cscore, plot.density.Imp, plot.density.SS,
+             layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
+                                   c(4, 4, 5, 5, 6, 6), 
+                                   c(7, 7, 7, NA, NA, NA)),
+             top = "Personality test score distribution",
+             left = "Density")
+#   5. Analysis of correlation ####
+#     Correlation plot utilities ####
+# *** Utilities for correlation matrix plot
+# Get lower triangle of the correlation matrix
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+# Reorder correlation matrix as a function of distance bw features
+reorder_cormat <- function(cormat){
+  # Use correlation between variables as distance
+  dd <- as.dist((1-cormat)/2)
+  hc <- hclust(dd)
+  cormat <- cormat[hc$order, hc$order]
+}
+# *** End utilities ***
+
+corr_plot <- function(df, title) { # *** Main routine ***
+  cormat <- round(cor(df, method = 'pearson'), 2)
+  #cormat <- reorder_cormat(cormat)
+  upper_tri <- get_upper_tri(cormat)
+  upper_tri
+  melted_cormat <- melt(upper_tri, na.rm = TRUE)
+  # Create the plot
+  ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value)) +
+    geom_tile(color = "white") +
+    scale_fill_gradient2(low = "#998ec3", high = "#f1a340", mid = "#f7f7f7",
+                         midpoint = 0., limit = c(-1,1), space = "Lab",
+                         name="Pearson\nCorrelation") +
+    theme_minimal()+ 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                     size = 12, hjust = 1))+
+    theme(axis.text.y = element_text(vjust = 0,
+                                     size = 12, hjust = 1))+
+    coord_fixed() +
+    ggtitle(title) +
+    theme(
+      plot.title = element_text(size = 16, face = 'bold'),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      #panel.grid.major = element_blank(),
+      panel.border = element_blank(),
+      panel.background = element_blank(),
+      axis.ticks = element_blank(),
+      legend.justification = c(1, 0),
+      legend.position = c(0.55, 0.725),
+      legend.direction = "horizontal") +
+    guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                                 title.position = "top", title.hjust = 0.5))
+  #Print heatmap
+  print(ggheatmap)
+  return(cormat)
+}
+
+#     Correlation plot ####
+df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
+                              Nscore, Escore, Oscore, Ascore, Cscore, 
+                              Impulsive, SS)
+df.cor <- df.cor-min(df.cor) # Shift values (algorithm requires positive values)
+df.cor <- df.cor %>% mutate(Used = as.integer(as.character(df.train$Used)))
+
+chisq <- chisq.test(df.cor, 
+                    simulate.p.value = TRUE)
+cormat <- as_tibble(corr_plot(chisq$residuals, "Feature correlation"))
+
+rm(df.cor)
 
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')

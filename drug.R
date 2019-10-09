@@ -13,7 +13,6 @@ if(!require(graphics)) install.packages("graphics", repos = "http://cran.us.r-pr
 if(!require(reshape2)) install.packages("reshape2", repos = "http://cran.us.r-project.org")
 if(!require(gbm)) install.packages("gbm", repos = "http://cran.us.r-project.org")
 
-
 # Load data ####
 # Remote / local flag
 remote <- 0
@@ -475,7 +474,7 @@ df$Used <- factor(df$Used,
 # RFE controls
 control <- rfeControl(functions = rfFuncs,
                       method = "repeatedcv",
-                      repeats = 3, # Change to 10 for final run
+                      repeats = 10, # Change to 10 for final run
                       verbose = FALSE)
 # Exclude Class from the list of predictors
 predictors <- names(df)[!names(df) %in% outcomeName]
@@ -494,7 +493,10 @@ rfe_Profile <- rfe_drug(df.train, outcomeName)
 predictors <- predictors(rfe_Profile)
 imp <- varImp(rfe_Profile, scale = TRUE)
 #     b. RFE profile plot ####
-plot.profile.rfe <- plot(rfe_Profile, type=c("g", "o"), cex = 1.0, col = 1:length(predictors))
+plot.profile.rfe <- 
+  plot(rfe_Profile, type=c("g", "o"), 
+       cex = 1.0, 
+       col = 1:length(predictors))
 
 #     c. RFE importance plot ####
 imp <- tibble(pred = rownames(imp),  imp)
@@ -513,22 +515,37 @@ plot.importance.rfe <- imp %>% ggplot(aes(reorder(pred, imp$Overall), imp$Overal
 #     Training parameters ####
 fitControl <- trainControl( 
   method = "repeatedcv", # Repeated k-fold Cross-Validation
-  number = 3, # 5 for debugging CHANGE TO 10-fold CV
-  repeats = 3, # 5 for debugging CHANGE TO 10 repeats
+  number = 5, # 5 for debugging CHANGE TO 10-fold CV
+  repeats = 5, # 5 for debugging CHANGE TO 10 repeats
   allowParallel = TRUE,
   verbose = FALSE
 )
 metric <- "Accuracy"
+#     Model importance plot utility ####
+plot.varImp <- function(model, title){
+  varImp <- as.data.frame(varImp(model)$importance)
+  varImp <- tibble(rownames(varImp), varImp)
+  colnames(varImp) <- c("prediction", "importance")
+  plot <- varImp %>% ggplot(aes(reorder(prediction, importance$Overall), varImp$importance$Overall)) +
+    geom_bar(stat = "identity",
+             width = .25,
+             aes(fill = I(fill),
+                 color = I(color))) +
+    labs(title = title,
+         x = "",
+         y = "") +
+    coord_flip() +
+    theme(text = element_text(size=imp_text_size))
+
+}
 #     a. Generalized linear model####
 set.seed(50)
 model.glm <- train(df.train[,predictors], 
                    as.factor(df.train[,outcomeName]), 
                    method = 'glm', 
                    metric = metric)
-# Plot predictors' relative importance
-varImpPlot.glm <- plot(varImp(object = model.glm), 
-                       main = "GLM", 
-                       top = length(predictors))
+
+plot.varImp.glm <- plot.varImp(model.glm, "GLM")
 
 CM.glm <- confusionMatrix(predict(model.glm, newdata = df.test), 
                           df.test$Used)
@@ -538,13 +555,10 @@ set.seed(35)
 model.glmnet.base <- train(df.train[,predictors],
                            as.factor(df.train[,outcomeName]),
                            method = 'glmnet',
-                           metric = 'Accuracy')
+                           metric = metric)
 
 # Plot predictors' relative importance
-varImpPlot.glmnet.base <- plot(varImp(object = model.glmnet.base),
-                               main = "GLMnet",
-                               top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
+plot.varImp.glmnet.base <- plot.varImp(model.glmnet.base, "GLMnet (no tuning)")
 
 CM.glmnet.base <- confusionMatrix(predict(model.glmnet.base, newdata = df.test),
                                   df.test$Used)
@@ -560,17 +574,177 @@ model.glmnet <- train(df.train[,predictors],
                       method = "glmnet",
                       trControl = fitControl,
                       tuneGrid = grid.glmnet, 
-                      metric = "Accuracy")
+                      metric = metric)
 
 # Plot predictors' relative importance
-varImpPlot.glmnet <- 
-  plot(varImp(object = model.glmnet), 
-       main = "GLMnet", 
-       top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
+plot.varImp.glmnet <- plot.varImp(model.glmnet, "GLMnet") 
 
 CM.glmnet <- confusionMatrix(predict(model.glmnet, 
                                      newdata = df.test), 
                              df.test$Used)
+#     c. Decision trees ####
+#       + RPART without parameter tuning ####
+set.seed(90)
+model.rpart.base <- train(df.train[,predictors], 
+                          as.factor(df.train[,outcomeName]), 
+                          method = 'rpart', 
+                          metric = metric)
+
+# Plot predictors' relative importance
+plot.varImp.rpart.base <- plot.varImp(model.rpart.base, "RPART (no tuning)")
+
+CM.rpart.base <- confusionMatrix(predict(model.rpart.base, newdata = df.test), 
+                                 df.test$Used)
+#       + RPART with parameter tuning ####
+set.seed(80)
+model.rpart <- train(df.train[,predictors],
+                     as.factor(df.train[,outcomeName]), 
+                     method = "rpart",
+                     trControl = fitControl,
+                     tuneLength = 500, 
+                     parms = list(split = 'information'))
+
+# Plot predictors' relative importance
+plot.varImp.rpart <- plot.varImp(model.rpart, "RPART")
+
+CM.rpart <- confusionMatrix(predict(model.rpart, newdata = df.test), 
+                            df.test$Used)
+#     d. Random forest ####
+#       + RF without parameter tuning ####
+set.seed(25)
+model.rf.base <- train(df.train[,predictors], 
+                       as.factor(df.train[,outcomeName]), 
+                       method = 'rf', 
+                       metric = metric)
+
+# Plot predictors' relative importance
+plot.varImp.rf.base <- plot.varImp(model.rf.base, "RF (no tuning)")
+
+CM.rf.base <- confusionMatrix(predict(model.rf.base, newdata = df.test), 
+                              df.test$Used)
+#       + RF with parameter tuning ####
+grid.rf <- expand.grid(mtry = seq(1, 10))
+set.seed(25)
+model.rf <- train(df.train[,predictors], 
+                  as.factor(df.train[,outcomeName]),
+                  method = 'rf',
+                  data = df.train,
+                  tuneGrid = grid.rf)
+
+# Plot predictors' relative importance
+plot.varImp.rf <- plot.varImp(model.rf, "RF")
+
+plot.varImp.rf
+CM.rf <- confusionMatrix(predict(model.rf, newdata = df.test), 
+                         df.test$Used)
+#     e. Stochastic gradient boosting ####
+#       + GBM without parameter tuning ####
+set.seed(5)
+model.gbm.base <- train(df.train[,predictors], 
+                        as.factor(df.train[,outcomeName]), 
+                        method = 'gbm', 
+                        metric = metric)
+
+plot.varImp.gbm.base <- plot.varImp(model.gbm.base, "GBM (no tuning)")
+
+CM.gbm.base <- confusionMatrix(predict(model.gbm.base, newdata = df.test), 
+                               df.test$Used)
+#       + GBM with parameter tuning ####
+max.depth <- floor(sqrt(NCOL(df.train)))
+# The grid values below were determined after many iterations
+grid.gbm <- expand.grid(n.trees = seq(195, 218, 1),
+                        shrinkage = seq(.01, .04, .01),
+                        n.minobsinnode = 8,
+                        interaction.depth = 3)
+set.seed(5)
+print("Running GBM")
+invisible(capture.output( # Prevent caret::train gbm to print to stdout
+  model.gbm <- train(df.train[,predictors],
+                     as.factor(df.train[,outcomeName]),
+                     method = 'gbm',
+                     trControl = fitControl,
+                     tuneGrid = grid.gbm) # Prevent caret::train gbm to print to stdout too
+))
+
+plot(model.gbm, plotType = "level")
+resampleHist(model.gbm)
+plot.varImp.gbm <- plot.varImp(model.gbm, "GBM")
+
+CM.gbm <- confusionMatrix(predict(model.gbm, newdata = df.test), 
+                          df.test$Used)
+#     f. Neural network ####
+#       + NNET without parameter tuning ####
+set.seed(125)
+model.nnet.base <- train(df.train[,predictors], 
+                         as.factor(df.train[,outcomeName]), 
+                         method = 'nnet', 
+                         metric = metric)
+
+# Plot predictors' relative importance
+plot.varImp.nnet.base <- plot.varImp(model.nnet.base, "NNET (no tuning)")
+
+CM.nnet.base <- confusionMatrix(predict(model.nnet.base, newdata = df.test), 
+                                df.test$Used)
+#       + NNET with parameter tuning ####
+grid.nnet <- expand.grid(size = c(1:6),
+                         decay = seq(0.1, 0.5, 0.1))
+set.seed(125)
+invisible(capture.output( # Prevent caret::train nnet to print to stdout
+  model.nnet <- train(df.train[,predictors],
+                      as.factor(df.train[,outcomeName]),
+                      method = 'nnet',
+                      trControl = fitControl,
+                      tuneGrid = grid.nnet,
+                      trace = FALSE)
+))
+
+# Heat map of the contribution of the size and decay parameters
+plot(model.nnet, plotType = "level")
+
+# Plot predictors' relative importance
+plot.varImp.nnet <- plot.varImp(model.nnet, "NNET")
+
+CM.nnet <- confusionMatrix(predict(model.nnet, newdata = df.test), 
+                           df.test$Used)
+#     g. Model comparisons ####
+#       + Fit comparisons ####
+model.fit <- tibble(
+  method = c("GLM",
+             "GLMnet",
+             "RPART",
+             "RF",
+             "GBM",
+             "NNET"),
+  train = c(max(model.glm$results$Accuracy),
+            max(model.glmnet$results$Accuracy),
+            max(model.rpart$results$Accuracy),
+            max(model.rf$results$Accuracy),
+            max(model.gbm$results$Accuracy),
+            max(model.nnet$results$Accuracy)),
+  test = c(CM.glm$overall[metric],
+           CM.glmnet$overall[metric],
+           CM.rpart$overall[metric],
+           CM.rf$overall[metric],
+           CM.gbm$overall[metric],
+           CM.nnet$overall[metric]))
+
+plot.model.fit <- model.fit %>% 
+  ggplot(aes(reorder(x = method, test), 
+             y = test)) +
+  geom_bar(stat = "identity", 
+           aes(color = I(color), 
+               fill = I(fill))
+  ) +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
+  labs(title = "Model comparison",
+       x = "",
+       y = "Fit to test set") +
+  geom_text(aes(label = sprintf("%0.2f%%", round(test*100, digits = 1)), 
+                hjust = 1.25),
+            size=4,
+            color = "white") +
+  scale_y_continuous(breaks = seq(0, 1, .1),
+                     labels = scales::percent_format(accuracy = 1)) +
+  coord_flip()
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')

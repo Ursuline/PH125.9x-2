@@ -1,5 +1,5 @@
 ---
-title: "Prediction of Cannabis Consumption from Demographics and Personality"
+title: "Predicting Cannabis Consumption from Demographics and Personality"
 subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
@@ -61,7 +61,7 @@ names(df.raw) <- c("Id", "Age", "Gender", "Education", "Country", "Ethnicity",
 
 ## + Introduction
 
-Drug use is a behavior that constitutes an important factor linked to poor health, including early mortality, and which presents significant adverse consequences for the social fabric, notably with respect to criminality and family cohesion. Early detection of an individual's predisposition to drug consumption offers the opportunity to healthcare professionals to short-circuit the onset of addiction. 
+Drug use is a behavior that constitutes an important factor linked to poor health, including early mortality, and which presents significant adverse consequences for the social fabric, notably with respect to criminality and family cohesion. Early detection of an individual's predisposition to drug consumption offers healthcare professionals an opportunity to short-circuit the onset of addiction. 
 
 The present study is based on a dataset that includes demographic and psychological information related to the consumption of 18 legal and illegal drugs by 1885 participants. For the purpose of this study, we choose to focus the data analysis and modeling on the use of cannabis.
 
@@ -170,7 +170,12 @@ axis_text_size <- 10
 plot.use
 ```
 
-The training set consists of `r df.train %>% filter(Used == 1) %>% nrow()` participants having used cannabis at some pioint in the past and `r df.train %>% filter(Used == 0) %>% nrow()` participants who haven't for a user-to-non-user ratio of ratio of 1:`r df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow()`.
+The training set consists of 
+`r df.train %>% filter(Used == 1) %>% nrow()` 
+participants having used cannabis at some pioint in their lives and 
+`r df.train %>% filter(Used == 0) %>% nrow()` 
+participants who haven't for a user-to-non-user ratio of 1:
+`r sprintf("%0.1f", round(df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow(), digits = 1))`.
 
 ### Contingency plots (prior to binning)
 
@@ -404,14 +409,11 @@ grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
 ```
 
 The density plots show some measure of difference between users and non-users particularly as it relates to either openness to experience, agreeableness, conscientiousness, impulsivity, and sensation-seeking. 
-Some implications are rather entertaining, notably the notion that nice (ie: agreeable) people may be less likely to smoke weed, or conversely that exposure to pot tends to might make people less nice.
+Some implications are rather entertaining, notably the notion that nice (ie: agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice.
 
 On the other hand, the distributions for users and non-users as they relate to  neuroticism or extraversion are similar, suggesting that these personality traits may not impact cannabis consumption. We will examine in the modeling section below whether that is indeed the case.
 
-Besides goodness of fit, the demographic and personality-related observations above will guide the assessment of the models we derive. 
-
 ### Feature correlation
-
 ```{r correlation matrix utilities, message=FALSE, paged.print=FALSE}
 # *** Utilities for correlation matrix plot
 # Get lower triangle of the correlation matrix
@@ -479,6 +481,8 @@ We examine redundancies among the 12 predictors and with the Used class:
 plot.corr
 ```
 
+Besides the goodness of fit to the test data, the demographic and personality-related observations above will guide the assessment of the models we derive. 
+
 \newpage
 
 ## C: Modeling
@@ -487,7 +491,9 @@ plot.corr
 imp_text_size <-7
 ```
 
-We seek a model which improves on the ratio of users to the population (`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). This constitutes the baseline above which predictive modeling is interesting.
+We seek a model which improves on the ratio of users to the population 
+(`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). 
+This constitutes the baseline above which predictive modeling is interesting.
 
 ### Recursive Feature elimination
 ```{r rfe wrapper, message=FALSE, paged.print=FALSE}
@@ -551,240 +557,67 @@ fitControl <- trainControl(
 
 ### Generalized linear model
 ```{r glm, message=FALSE, warning=FALSE, paged.print=FALSE}
-varImpPlot.glm
-CM.glm
+plot.varImp.glm
 ```
-
 ### Generalized linear model with penalized maximum likelihood
-```{r glmnet base, message=FALSE, warning=FALSE, paged.print=FALSE}
+```{r glmnet , message=FALSE, warning=FALSE, paged.print=FALSE}
 # GLMnet without parameter tuning
-varImpPlot.glmnet.base
-CM.glmnet.base
-```
+plot.varImp.glmnet.base
 
-```{r glmnet, message=FALSE, warning=FALSE, paged.print=FALSE}
 # GLMnet with parameter tuning
-varImpPlot.glmnet
-CM.glmnet 
+plot.varImp.glmnet
 ```
 
 ### Decision trees
-```{r decision trees base, message=FALSE, warning=FALSE, paged.print=FALSE}
-# RPART Without parameter tuning
-set.seed(90)
-model.rpart.base <- train(df.train[,predictors], 
-                          as.factor(df.train[,outcomeName]), 
-                          method = 'rpart', 
-                          metric = 'Accuracy')
-
-# Plot predictors' relative importance
-varImpPlot.rpart.base <- plot(varImp(object = model.rpart.base), 
-                              main = "Decision Tree",
-                              top = length(predictors))
-
-CM.rpart.base <- confusionMatrix(predict(model.rpart.base, newdata = df.test), 
-                                 df.test$Used)
-```
-
 ```{r decision trees, message=FALSE, warning=FALSE, paged.print=FALSE}
+# RPART Without parameter tuning
+plot.varImp.rpart.base
 # RPART With parameter tuning 
-set.seed(80)
-model.rpart <- train(df.train[,predictors],
-                     as.factor(df.train[,outcomeName]), 
-                     method = "rpart",
-                     trControl = fitControl,
-                     tuneLength = 500, 
-                     parms = list(split = 'information'))
-
-# Plot predictors' relative importance
-varImpPlot.rpart <- plot(varImp(object = model.rpart), 
-                         main = "Decision Tree", 
-                         top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
-
-CM.rpart <- confusionMatrix(predict(model.rpart, newdata = df.test), 
-                            df.test$Used)
+plot.varImp.rpart
 ```
 
 ### Random forest
-```{r random forest base, message=FALSE, warning=FALSE, paged.print=FALSE}
-# RF without parameter tuning
-set.seed(25)
-model.rf.base <- train(df.train[,predictors], 
-                          as.factor(df.train[,outcomeName]), 
-                          method = 'rf', 
-                          metric = 'Accuracy')
-
-# Plot predictors' relative importance
-varImpPlot.rf.base <- plot(varImp(object = model.rf.base), 
-                            main = "Random forest",
-                            top = length(predictors))
-
-CM.rf.base <- confusionMatrix(predict(model.rf.base, newdata = df.test), 
-                              df.test$Used)
-```
-
 ```{r random forest, message=FALSE, warning=FALSE, paged.print=FALSE}
+# RF without parameter tuning
+plot.varImp.rf.base
+
 # RF with parameter tuning
-grid.rf <- expand.grid(mtry = seq(1, 10))
-set.seed(25)
-model.rf <- train(df.train[,predictors], 
-                  as.factor(df.train[,outcomeName]),
-                  method = 'rf',
-                  data = df.train,
-                  tuneGrid = grid.rf)
-
-# Plot predictors' relative importance
-varImpPlot.rf <- plot(varImp(object = model.rf), 
-                      main = "Random forest", 
-                      top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
-
-CM.rf <- confusionMatrix(predict(model.rf, newdata = df.test), 
-                         df.test$Used)
+plot.varImp.rf
 ```
 
 ### Stochastic Gradient Boosting 
-```{r gbm base, message=FALSE, warning=FALSE, paged.print=FALSE}
-# GBM without parameter tuning
-set.seed(5)
-model.gbm.base <- train(df.train[,predictors], 
-                       as.factor(df.train[,outcomeName]), 
-                       method = 'gbm', 
-                       metric = 'Accuracy')
-
-varImpPlot.gbm.base <- plot(varImp(object = model.gbm.base), 
-                            main = "GBM", 
-                            top = length(predictors))
-
-CM.gbm.base <- confusionMatrix(predict(model.gbm.base, newdata = df.test), 
-                               df.test$Used)
-```
-
 ```{r gbm, message=FALSE, warning=FALSE, paged.print=FALSE}
+# GBM without parameter tuning
+plot.varImp.gbm.base
+
 # GBM with parameter tuning
-max.depth <- floor(sqrt(NCOL(df.train)))
-# The grid values below were determined after many iterations
-grid.gbm <- expand.grid(n.trees = seq(195, 218, 1),
-                        shrinkage = seq(.01, .04, .01),
-                        n.minobsinnode = 8,
-                        interaction.depth = 3)
-set.seed(5)
-print("Running GBM")
-invisible(capture.output( # Prevent caret::train gbm to print to stdout
-  model.gbm <- train(df.train[,predictors],
-                     as.factor(df.train[,outcomeName]),
-                     method = 'gbm',
-                     trControl = fitControl,
-                     tuneGrid = grid.gbm) # Prevent caret::train gbm to print to stdout too
-))
-
-plot(model.gbm, plotType = "level")
-resampleHist(model.gbm)
-varImpPlot.gbm <- plot(varImp(object = model.gbm), 
-                       main = "GBM", 
-                       top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
-
-CM.gbm <- confusionMatrix(predict(model.gbm, newdata = df.test), 
-                          df.test$Used)
+plot.varImp.gbm
 ```
 
 ### Neural network
 ```{r nnet base, message=FALSE, warning=FALSE, paged.print=FALSE}
 # NNET without parameter tuning
-set.seed(125)
-model.nnet.base <- train(df.train[,predictors], 
-                        as.factor(df.train[,outcomeName]), 
-                        method = 'nnet', 
-                        metric = 'Accuracy')
+plot.varImp.nnet.base
 
-# Plot predictors' relative importance
-varImpPlot.nnet.base <- plot(varImp(object = model.nnet.base), 
-                            main = "Neural network", 
-                            top = length(predictors))
-
-CM.nnet.base <- confusionMatrix(predict(model.nnet.base, newdata = df.test), 
-                                df.test$Used)
-```
-
-```{r nnet, message=FALSE, warning=FALSE, paged.print=FALSE}
 # NNET with parameter tuning
-grid.nnet <- expand.grid(size = c(1:6),
-                         decay = seq(0.1, 0.5, 0.1))
-set.seed(125)
-invisible(capture.output( # Prevent caret::train nnet to print to stdout
-  model.nnet <- train(df.train[,predictors],
-                      as.factor(df.train[,outcomeName]),
-                      method = 'nnet',
-                      trControl = fitControl,
-                      tuneGrid = grid.nnet,
-                      trace = FALSE)
-))
-
-# Heat map of the contribution of the size and decay parameters
-plot(model.nnet, plotType = "level")
-# Plot predictors' relative importance
-varImpPlot.nnet <- plot(varImp(object = model.nnet), 
-                        main = "Neural network", 
-                        top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
-
-CM.nnet <- confusionMatrix(predict(model.nnet, newdata = df.test), 
-                           df.test$Used)
+plot.varImp.nnet
 ```
 
 ### Model comparisons
 ```{r variable importance plots, message=FALSE, paged.print=FALSE}
 #Variable importance
-# grid.arrange(varImpPlot.glm, varImpPlot.glmnet,
-#              varImpPlot.rpart, varImpPlot.rf,
-#              varImpPlot.gbm, varImpPlot.nnet,
-#              nrow = 2,
-#              top = "Variable importance",
-#              left = "Predictor"
-# )
+grid.arrange(plot.varImp.glm, plot.varImp.glmnet,
+             plot.varImp.rpart, plot.varImp.rf,
+             plot.varImp.gbm, plot.varImp.nnet,
+             nrow = 2,
+             top = "Model predictor importance",
+             left = "Predictor",
+             bottom = "Importance"
+)
 ```
 
 ```{r model comparisons, message=FALSE, paged.print=FALSE}
-model.fit <- tibble(
-  method = c("GLM",
-             "GLMnet (no tuning)", "GLMnet",
-             "RPART (no tuning)", "RPART",
-             "RF (no tuning)", "RF",
-             "GBM (no tuning)", "GBM",
-             "NNET (no tuning)", "NNET"),
-  train = c(max(model.glm$results$Accuracy),
-            max(model.glmnet.base$results$Accuracy), max(model.glmnet$results$Accuracy),
-            max(model.rpart.base$results$Accuracy), max(model.rpart$results$Accuracy),
-            max(model.rf.base$results$Accuracy), max(model.rf$results$Accuracy),
-            max(model.gbm.base$results$Accuracy), max(model.gbm$results$Accuracy),
-            max(model.nnet.base$results$Accuracy), max(model.nnet$results$Accuracy)),
-   test = c(CM.glm$overall["Accuracy"],
-            CM.glmnet.base$overall["Accuracy"], CM.glmnet$overall["Accuracy"],
-            CM.rpart.base$overall["Accuracy"], CM.rpart$overall["Accuracy"],
-            CM.rf.base$overall["Accuracy"], CM.rf$overall["Accuracy"],
-            CM.gbm.base$overall["Accuracy"], CM.gbm$overall["Accuracy"],
-            CM.nnet.base$overall["Accuracy"], CM.nnet$overall["Accuracy"]))
-
- model.fit %>% 
-   ggplot(aes(reorder(x = method, test), 
-              y = test)) +
-   geom_bar(stat = "identity", 
-            aes(color = I(color), 
-                fill = I(fill))
-            ) +
-   theme(axis.text.x = element_text(angle = 35, hjust = 1)) +
-   labs(title = "Model comparison",
-        x = "",
-        y = "Fit to test set") +
-   geom_text(aes(label = sprintf("%0.2f%%", round(test*100, digits = 1)), 
-                 hjust = 1.25),
-             size=4,
-             color = "white") +
-   scale_y_continuous(breaks = seq(0, 1, .1),
-                      labels = scales::percent_format(accuracy = 1)) +
-   coord_flip()
+plot.model.fit
 ```
 
 # Results

@@ -184,17 +184,17 @@ propPlot <- function(cont, labels, title){
   }
 
 #   4. Contingency plots ####
-#     a. Age contingency plot ####
+#     a. Age  ####
 title.age <- "Age"
 labels.age <- c("18-24", "25-34", "35-44", "45-54", "55+")
 plot.age <- demogPlot(title.age, labels.age, "years old")
 
-#     b. Gender contingency plot ####
+#     b. Gender ####
 title.gender <- "Gender"
 labels.gender <- c("male", "female")
 plot.gender <- demogPlot(title.gender, labels.gender, "")
 
-#     c. Education contingency plot ####
+#     c. Education ####
 title.edu <- "Education"
 labels.edu <- c("Left school as teen", 
                 "Some college/univ.", 
@@ -203,12 +203,12 @@ labels.edu <- c("Left school as teen",
                 "Graduate degree")
 plot.edu <- demogPlot(title.edu, labels.edu, "")
 
-#     d. Country contingency plot ####
+#     d. Country ####
 title.country <- "Country"
 labels.country <- c("USA", "Other", "UK")
 plot.country <- demogPlot(title.country, labels.country, "")
 
-#     e. Ethnicity contingency plot ####
+#     e. Ethnicity ####
 title.ethn <- "Ethnicity"
 labels.ethn <- c("White", "Non-white")
 plot.ethn <- demogPlot(title.ethn, labels.ethn, "")
@@ -221,7 +221,7 @@ plot.contingency <- grid.arrange(plot.country, plot.gender, plot.ethn,
              top = "Use of cannabis in training set by:",
              left = "Counts")
 
-#   5. Personality analysis
+#   5. Personality analysis ####
 #     Personality analysis plot parameters ####
 breaks <- seq(-3, 3, .5)
 angle <- 60
@@ -386,9 +386,8 @@ plot.density.personality <-
                                    c(7, 7, 7, NA, NA, NA)),
              top = "Personality test score distribution",
              left = "Density")
-#   5. Analysis of correlation ####
+#   6. Analysis of correlation ####
 #     Correlation plot utilities ####
-# *** Utilities for correlation matrix plot
 # Get lower triangle of the correlation matrix
 get_lower_tri<-function(cormat){
   cormat[upper.tri(cormat)] <- NA
@@ -408,7 +407,6 @@ reorder_cormat <- function(cormat){
   hc <- hclust(dd)
   cormat <- cormat[hc$order, hc$order]
 }
-# *** End utilities ***
 
 corr_plot <- function(df, title) { # *** Main routine ***
   cormat <- round(cor(df, method = 'pearson'), 2)
@@ -442,9 +440,9 @@ corr_plot <- function(df, title) { # *** Main routine ***
       legend.direction = "horizontal") +
     guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
                                  title.position = "top", title.hjust = 0.5))
-  #Print heatmap
-  print(ggheatmap)
-  return(cormat)
+  #Return  heatmap
+  return(ggheatmap)
+#  return(cormat)
 }
 
 #     Correlation plot ####
@@ -456,9 +454,123 @@ df.cor <- df.cor %>% mutate(Used = as.integer(as.character(df.train$Used)))
 
 chisq <- chisq.test(df.cor, 
                     simulate.p.value = TRUE)
-cormat <- as_tibble(corr_plot(chisq$residuals, "Feature correlation"))
+#cormat <- as_tibble(corr_plot(chisq$residuals, "Feature correlation"))
+plot.corr <- corr_plot(chisq$residuals, "Feature correlation")
 
-rm(df.cor)
+# C: Modeling
+#   Modeling plot parameters ####
+imp_text_size <-7
 
+#   1. RFE ####
+#     Wrapper for caret RFE ####
+rfe_drug <- function(df, outcomeName){ 
+# Remove the id column
+df <- df %>% select(-Id) 
+
+# Make the Used class a factor
+df$Used <- factor(df$Used,
+                  levels = c(0, 1), 
+                  labels = c("0", "1"))
+
+# RFE controls
+control <- rfeControl(functions = rfFuncs,
+                      method = "repeatedcv",
+                      repeats = 3, # Change to 10 for final run
+                      verbose = FALSE)
+# Exclude Class from the list of predictors
+predictors <- names(df)[!names(df) %in% outcomeName]
+
+# caret RFE Call
+pred_Profile <- rfe(df[ ,predictors], 
+                    unlist(df[ ,outcomeName]), 
+                    rfeControl = control)
+return(pred_Profile)
+}
+#     a. RFE call ####
+outcomeName <- "Used"
+set.seed(5)
+rfe_Profile <- rfe_drug(df.train, outcomeName)
+#rfe_Profile
+predictors <- predictors(rfe_Profile)
+imp <- varImp(rfe_Profile, scale = TRUE)
+#     b. RFE profile plot ####
+plot.profile.rfe <- plot(rfe_Profile, type=c("g", "o"), cex = 1.0, col = 1:length(predictors))
+
+#     c. RFE importance plot ####
+imp <- tibble(pred = rownames(imp),  imp)
+colnames(imp) <- c("pred", "imp")
+
+plot.importance.rfe <- imp %>% ggplot(aes(reorder(pred, imp$Overall), imp$Overall)) +
+  geom_bar(stat = "identity",
+           width = .25,
+           aes(fill = I(fill),
+               color = I(color))) +
+  labs(title = "Predictor importance from RFE",
+       x = "Predictor",
+       y ="Importance") +
+  coord_flip()
+#   2. Training ####
+#     Training parameters ####
+fitControl <- trainControl( 
+  method = "repeatedcv", # Repeated k-fold Cross-Validation
+  number = 3, # 5 for debugging CHANGE TO 10-fold CV
+  repeats = 3, # 5 for debugging CHANGE TO 10 repeats
+  allowParallel = TRUE,
+  verbose = FALSE
+)
+metric <- "Accuracy"
+#     a. Generalized linear model####
+set.seed(50)
+model.glm <- train(df.train[,predictors], 
+                   as.factor(df.train[,outcomeName]), 
+                   method = 'glm', 
+                   metric = metric)
+# Plot predictors' relative importance
+varImpPlot.glm <- plot(varImp(object = model.glm), 
+                       main = "GLM", 
+                       top = length(predictors))
+
+CM.glm <- confusionMatrix(predict(model.glm, newdata = df.test), 
+                          df.test$Used)
+#     b. Generalized linear model with penalized maximum likelihood ####
+#       + GLMnet without parameter tuning ####
+set.seed(35)
+model.glmnet.base <- train(df.train[,predictors],
+                           as.factor(df.train[,outcomeName]),
+                           method = 'glmnet',
+                           metric = 'Accuracy')
+
+# Plot predictors' relative importance
+varImpPlot.glmnet.base <- plot(varImp(object = model.glmnet.base),
+                               main = "GLMnet",
+                               top = length(predictors)) +
+  theme(text = element_text(size=imp_text_size))
+
+CM.glmnet.base <- confusionMatrix(predict(model.glmnet.base, newdata = df.test),
+                                  df.test$Used)
+
+#       + GLMnet with parameter tuning ####
+grid.glmnet <- expand.grid(
+  alpha = seq(from = 0, to = .15, length = 25),
+  lambda = seq(0, .01, length = 25)
+)
+set.seed(35)
+model.glmnet <- train(df.train[,predictors],
+                      as.factor(df.train[,outcomeName]), 
+                      method = "glmnet",
+                      trControl = fitControl,
+                      tuneGrid = grid.glmnet, 
+                      metric = "Accuracy")
+
+# Plot predictors' relative importance
+varImpPlot.glmnet <- 
+  plot(varImp(object = model.glmnet), 
+       main = "GLMnet", 
+       top = length(predictors)) +
+  theme(text = element_text(size=imp_text_size))
+
+CM.glmnet <- confusionMatrix(predict(model.glmnet, 
+                                     newdata = df.test), 
+                             df.test$Used)
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')

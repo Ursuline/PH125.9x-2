@@ -475,18 +475,8 @@ corr_plot <- function(df, title) { # *** Main routine ***
 
 We examine redundancies among the 12 predictors and with the Used class:
 
-```{r correlation among features, message=FALSE, paged.print=FALSE}
-df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
-                              Nscore, Escore, Oscore, Ascore, Cscore, 
-                              Impulsive, SS)
-df.cor <- df.cor-min(df.cor) # Shift values (algorithm requires positive values)
-df.cor <- df.cor %>% mutate(Used = as.integer(as.character(df.train$Used)))
-
-chisq <- chisq.test(df.cor, 
-                    simulate.p.value = TRUE)
-cormat <- as_tibble(corr_plot(chisq$residuals, "Feature correlation"))
-
-rm(df.cor)
+```{r correlation plot, message=FALSE, paged.print=FALSE}
+plot.corr
 ```
 
 \newpage
@@ -497,7 +487,7 @@ rm(df.cor)
 imp_text_size <-7
 ```
 
-We seek a model which improves on the ratio of users to the population (`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). This constitutes the baseline above which predictive modeling becomes interesting.
+We seek a model which improves on the ratio of users to the population (`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). This constitutes the baseline above which predictive modeling is interesting.
 
 ### Recursive Feature elimination
 ```{r rfe wrapper, message=FALSE, paged.print=FALSE}
@@ -530,31 +520,20 @@ rfe_drug <- function(df, outcomeName){
 For RFE as well as subsequent modeling, we use the k-fold cross validation method which involves splitting the dataset into k subsets. The algorithm holds aside one of the subsets while the model is trained on the others. This process is repeated a predetermined number of times and the overall accuracy estimate is provided.
 
 ```{r rfe call, message=FALSE, paged.print=FALSE}
-outcomeName <- "Used"
-set.seed(5)
-rfe_Profile <- rfe_drug(df.train, outcomeName)
-#rfe_Profile
-predictors <- predictors(rfe_Profile)
-imp <- varImp(rfe_Profile, scale = TRUE)
+# outcomeName <- "Used"
+# set.seed(5)
+# rfe_Profile <- rfe_drug(df.train, outcomeName)
+# #rfe_Profile
+# predictors <- predictors(rfe_Profile)
+# imp <- varImp(rfe_Profile, scale = TRUE)
 ```
 
 ```{r rfe profile plot, message=FALSE, paged.print=FALSE}
-plot(rfe_Profile, type=c("g", "o"), cex = 1.0, col = 1:length(predictors))
+plot.profile.rfe
 ```
 
 ```{r rfe importance plot, message=FALSE, paged.print=FALSE}
-imp <- tibble(pred = rownames(imp),  imp)
-colnames(imp) <- c("pred", "imp")
-
-imp %>% ggplot(aes(reorder(pred, imp$Overall), imp$Overall)) +
-  geom_bar(stat = "identity",
-           width = .25,
-           aes(fill = I(fill),
-               color = I(color))) +
-  labs(title = "Predictor importance from RFE",
-       x = "Predictor",
-       y ="Importance") +
-  coord_flip()
+plot.importance.rfe
 ```
 
 The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution plots: among the personality trait tests, N-score and E-score contribute the least while seeking sensation and O-score contribute the most. However, the impulsivity doesn't seem to be as strong a factor as one might have expected from the density plots.
@@ -572,62 +551,21 @@ fitControl <- trainControl(
 
 ### Generalized linear model
 ```{r glm, message=FALSE, warning=FALSE, paged.print=FALSE}
-set.seed(50)
-model.glm <- train(df.train[,predictors], 
-                          as.factor(df.train[,outcomeName]), 
-                          method = 'glm', 
-                          metric = 'Accuracy')
-# Plot predictors' relative importance
-varImpPlot.glm <- plot(varImp(object = model.glm), 
-                       main = "GLM", 
-                       top = length(predictors))
-
-CM.glm <- confusionMatrix(predict(model.glm, newdata = df.test), 
-                          df.test$Used)
+varImpPlot.glm
+CM.glm
 ```
-
 
 ### Generalized linear model with penalized maximum likelihood
 ```{r glmnet base, message=FALSE, warning=FALSE, paged.print=FALSE}
 # GLMnet without parameter tuning
-set.seed(35)
-model.glmnet.base <- train(df.train[,predictors],
-                   as.factor(df.train[,outcomeName]),
-                   method = 'glmnet',
-                   metric = 'Accuracy')
-
-# Plot predictors' relative importance
-varImpPlot.glmnet.base <- plot(varImp(object = model.glmnet.base),
-                               main = "GLMnet",
-                               top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
-
-CM.glmnet.base <- confusionMatrix(predict(model.glmnet.base, newdata = df.test),
-                                  df.test$Used)
+varImpPlot.glmnet.base
+CM.glmnet.base
 ```
 
 ```{r glmnet, message=FALSE, warning=FALSE, paged.print=FALSE}
 # GLMnet with parameter tuning
-grid.glmnet <- expand.grid(
-  alpha = seq(from = 0, to = .15, length = 25),
-  lambda = seq(0, .01, length = 25)
-)
-set.seed(35)
-model.glmnet <- train(df.train[,predictors],
-                     as.factor(df.train[,outcomeName]), 
-                     method = "glmnet",
-                     trControl = fitControl,
-                     tuneGrid = grid.glmnet, 
-                     metric = "Accuracy")
-
-# Plot predictors' relative importance
-varImpPlot.glmnet <- plot(varImp(object = model.glmnet), 
-                          main = "GLMnet", 
-                          top = length(predictors)) +
-  theme(text = element_text(size=imp_text_size))
-
-CM.glmnet <- confusionMatrix(predict(model.glmnet, newdata = df.test), 
-                             df.test$Used)
+varImpPlot.glmnet
+CM.glmnet 
 ```
 
 ### Decision trees

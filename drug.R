@@ -75,6 +75,7 @@ plot.use <- df.train %>%
   labs(title = title, x = "", y = "count") +
   scale_x_discrete(labels = c("Never used", "Used"))
 plot.use
+#   2. Contingency plots prior to re-binning (balloon plots) ####
 #     Balloon plot utility ####
 balloon.plot <- function(cont, title){
   balloon_melted<-melt(cont, sort=F)
@@ -89,22 +90,21 @@ balloon.plot <- function(cont, title){
     scale_size_area(max_size=20) +
     labs(x="", y="", title = title)
 }
-#   2. Contingency plots prior to re-binning (balloon plots) ####
-#     a. Age contingency plot ####
+#     a. Age balloon plot ####
 cont.age <- table(df.train$Age, df.train$Used)
 colnames(cont.age) <- c("Not used", "Used")
 rownames(cont.age) <- c("18-24", "25-34", "35-44", "45-54", "55-64", "65+")
 
 plot.balloon.age <- balloon.plot(cont.age, "Age group")
 
-#     b. Gender contingency plot ####
+#     b. Gender balloon plot ####
 cont.gender <- table(df.train$Gender, df.train$Used)
 colnames(cont.gender) <- c("Not used", "Used")
 rownames(cont.gender) <- c("male", "female")
 
 plot.balloon.gender <- balloon.plot(cont.gender, "Gender")
 
-#     c. Education contingency plot ####
+#     c. Education balloon plot ####
 cont.edu <- table(df.train$Education, df.train$Used)
 colnames(cont.edu) <- c("Not used", "Used")
 rownames(cont.edu) <- c("Left school before 16 yo", 
@@ -119,7 +119,7 @@ rownames(cont.edu) <- c("Left school before 16 yo",
 
 plot.balloon.edu <- balloon.plot(cont.edu, "Education")
 
-#     d. Country contingency plot ####
+#     d. Country balloon plot ####
 cont.country <- table(df.train$Country, df.train$Used)
 colnames(cont.country) <- c("Not used", "Used")
 rownames(cont.country) <- c("USA", "New Zealand", "Other", "Australia", 
@@ -127,7 +127,7 @@ rownames(cont.country) <- c("USA", "New Zealand", "Other", "Australia",
 
 plot.balloon.country <- balloon.plot(cont.country, "Country")
 
-#     e. Ethnicity contingency plot ####
+#     e. Ethnicity balloon plot ####
 cont.ethn <- table(df.train$Ethnicity, df.train$Used)
 colnames(cont.ethn) <- c("Not used", "Used")
 rownames(cont.ethn) <- c("Black", "Asian", "White", "Mixed-White/Black", 
@@ -150,7 +150,8 @@ df.test <-
   mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, # Dropped school
                             ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD 
   mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
-#   3. Contingency plot utilities ####
+#   3. Contingency plots ####
+#     Contingency plot utilities ####
 demogPlot <- function(title, labels, x_axis_title){
   dP <- df.train %>%
     ggplot(aes(factor(.[,title]))) +
@@ -168,21 +169,6 @@ demogPlot <- function(title, labels, x_axis_title){
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
   return(dP)
 }
-propPlot <- function(cont, labels, title){
-    plot <- cont %>%
-      ggplot(aes(x = labels, y = Never_used/Used)) +
-      geom_bar(stat = "identity", aes(fill = I(fill_no), color = I(color))) +
-      scale_x_discrete(labels = labels)  +
-      labs(title = title,
-           x = "",
-           y = "") +
-      scale_y_continuous(breaks = seq(0, 1, .1),
-                         labels = scales::percent_format(accuracy = 1)) +
-      theme(text = element_text(size = axis_text_size))
-    return(plot)
-  }
-
-#   4. Contingency plots ####
 #     a. Age  ####
 title.age <- "Age"
 labels.age <- c("18-24", "25-34", "35-44", "45-54", "55+")
@@ -219,6 +205,67 @@ plot.contingency <- grid.arrange(plot.country, plot.gender, plot.ethn,
                                    c(4, 4, 4, 5, 5, 5)),
              top = "Use of cannabis in training set by:",
              left = "Counts")
+
+#   4. Ratios ####
+#     Ratios utilities ####
+propPlot <- function(df, labels, title){
+  plot <- df %>%
+    ggplot(aes(reorder(Var, -Prop), Prop)) +
+    geom_bar(stat = "identity", 
+             aes(fill = I(fill_no), 
+                 color = I(color))
+             ) +
+    labs(title = title,
+         x = "",
+         y = "") +
+    theme(text = element_text(size = axis_text_size)) +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))+
+    geom_text(aes(label = sprintf("%0.1f", round(Prop, digits = 1)), 
+                  hjust = .4,
+                  vjust = 1.5),
+              size = 5,
+              color = "grey25")
+  return(plot)
+}
+propTable <- function(pred, labels){
+  df.prop <- df.train %>% 
+    group_by_at(vars(pred, "Used")) %>% 
+    summarize(n = n()) %>% 
+    filter(Used == "0") %>% 
+    select(pred, Never_Used = n)
+  temp <- df.train %>% 
+    group_by_at(vars(pred, "Used")) %>% 
+    summarize(n = n()) %>% 
+    filter(Used == "1") %>% 
+    select(Used = n)
+  df.prop <- cbind(df.prop, temp) %>% 
+    select(pred, Never_Used, Used) %>% 
+    mutate(Prop = Used/Never_Used) %>% 
+    arrange(!! rlang::sym(c(pred))) # sort by predictor value
+  df.prop <- cbind(Var = labels, df.prop)
+  return(df.prop)
+}
+#     a. Age ####
+table.age <- propTable('Age', labels.age)
+plot.prop.age <- propPlot(table.age, labels.age, "Age")
+
+#     b. Gender ####
+table.gender <- propTable('Gender', labels.gender)
+plot.prop.gender <- propPlot(table.gender, labels.gender, "Gender")
+
+#     c. Education ####
+table.edu <- propTable('Education', labels.edu)
+plot.prop.edu <- propPlot(table.edu, labels.edu, "Education")
+
+#     d. Country ####
+table.country <- propTable('Country', labels.country)
+plot.prop.country <- propPlot(table.country, labels.country, "Country")
+
+(table.country %>% filter(Var == "USA"))$Prop
+
+#     e. Ethnicity ####
+table.ethn <- propTable('Ethnicity', labels.ethn)
+plot.prop.ethn <- propPlot(table.ethn, labels.ethn, "Ethnicity")
 
 #   5. Personality analysis ####
 #     Personality analysis plot parameters ####
@@ -385,7 +432,7 @@ plot.density.personality <-
                                    c(7, 7, 7, NA, NA, NA)),
              top = "Personality test score distribution",
              left = "Density")
-#   6. Analysis of correlation ####
+#   6. Correlations ####
 #     Correlation plot utilities ####
 # Get lower triangle of the correlation matrix
 get_lower_tri<-function(cormat){
@@ -515,8 +562,8 @@ plot.importance.rfe <- imp %>% ggplot(aes(reorder(pred, imp$Overall), imp$Overal
 #     Training parameters ####
 fitControl <- trainControl( 
   method = "repeatedcv", # Repeated k-fold Cross-Validation
-  number = 5, # 5 for debugging CHANGE TO 10-fold CV
-  repeats = 5, # 5 for debugging CHANGE TO 10 repeats
+  number = 10, # 5 for debugging CHANGE TO 10-fold CV
+  repeats = 10, # 5 for debugging CHANGE TO 10 repeats
   allowParallel = TRUE,
   verbose = FALSE
 )
@@ -748,3 +795,4 @@ plot.model.fit <- model.fit %>%
   coord_flip()
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')
+

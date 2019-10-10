@@ -4,10 +4,10 @@ subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     number_sections: no
-    toc: yes
-  pdf_document:
     toc: yes
 ---
 
@@ -230,6 +230,32 @@ grid.arrange(plot.country, plot.gender, plot.ethn,
              top = "Use of cannabis in training set by:",
              left = "Counts")
 ```
+
+```{r ratio plot, message=FALSE, warning=FALSE, paged.print=FALSE}
+grid.arrange(plot.prop.country, plot.prop.gender, plot.prop.ethn,
+             plot.prop.age, plot.prop.edu,
+             layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
+                                   c(4, 4, 4, 5, 5, 5)),
+             top = "Ratio of Users to Non-Users by demographic group",
+             left = "ratio(Users : Non-Users)")
+```
+
+* Americans consume more cannabis per capita 
+(`r sprintf("%0.1f", round((table.country %>% filter(Var == "USA"))$Prop, digits = 1))`) 
+than the British 
+(`r sprintf("%0.1f", round((table.country %>% filter(Var == "UK"))$Prop, digits = 1))`) 
+or other countries in the study 
+(`r sprintf("%0.1f", round((table.country %>% filter(Var == "Other"))$Prop, digits = 1))`) 
+* Men consume more 
+(`r sprintf("%0.1f", round((table.gender %>% filter(Var == "male"))$Prop, digits = 1))`)
+than women
+(`r sprintf("%0.1f", round((table.gender %>% filter(Var == "female"))$Prop, digits = 1))`)
+
+* Whites consume more 
+(`r sprintf("%0.1f", round((table.ethn %>% filter(Var == "White"))$Prop, digits = 1))`)
+than non-whites
+(`r sprintf("%0.1f", round((table.ethn %>% filter(Var == "Non-white"))$Prop, digits = 1))`)
+
 
 \newpage
 ### Personality analysis
@@ -574,3 +600,4 @@ Demographics have more impact than personality
 # Conclusion
 
 Scope -> having used once in lifetime may not be telling. Could be interesting to bin never with over ten years ago ?
+Cannabis consumption is primarily a cultural phenomenon

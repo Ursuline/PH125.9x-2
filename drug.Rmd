@@ -4,10 +4,10 @@ subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     number_sections: no
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -105,7 +105,7 @@ This report consists of two main sections:
 + In the first part, after performing minor data engineering, we explore, bin, and analyze the dataset. 
 + In the second part, we move on to the modeling phase:
 
-  * After applying a Recursive feature elimination algotirhm to seek and discard predictors that do not contribute significantly to the outcome, we build models based on the following methods:
+  * After applying the Recursive Feature Elimination algorithm to seek and potentially discard predictors that do not contribute significantly to the outcome, we build models based on the following six popular machine learning methods:
   + Generalized linear model (glm)
   + Generalized linear model with penalized maximum likelihood (GLMnet)
   + Decision tree (rpart)
@@ -150,7 +150,6 @@ df.train <- df.raw[ trainIndex,]
 df.test  <- df.raw[-trainIndex,]
 ```
 
-\newpage
 ## B: Data exploration
 ```{r plot parameters, message=FALSE, warning=FALSE, paged.print=FALSE}
 # Global plot parameters
@@ -193,7 +192,7 @@ plot.balloon.country
 plot.balloon.ethn
 ```
 
-We note that the dataset of `r df.train %>% nrow()` participants is dominated by young and educated white American and British participants of both sexes.
+The dataset of `r df.train %>% nrow()` participants is dominated by young and educated white American and British participants of both sexes.
 
 #### Binning
 The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information:
@@ -437,7 +436,7 @@ grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
 The density plots show some measure of difference between users and non-users particularly as it relates to either openness to experience, agreeableness, conscientiousness, impulsivity, and sensation-seeking. 
 Some implications are rather entertaining, notably the notion that nice (ie: agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice.
 
-On the other hand, the distributions for users and non-users as they relate to  neuroticism or extraversion are similar, suggesting that these personality traits may not impact cannabis consumption. We will examine in the modeling section below whether that is indeed the case.
+On the other hand, the distributions for users and non-users as they relate to  neuroticism or extraversion are similar, suggesting that these personality traits may not impact cannabis consumption. We will examine in the modeling section below whether this observation is consistent with the results derived from machine learning.
 
 ### Feature correlation
 ```{r correlation matrix utilities, message=FALSE, paged.print=FALSE}
@@ -501,11 +500,15 @@ corr_plot <- function(df, title) { # *** Main routine ***
 }
 ```
 
-We examine redundancies among the 12 predictors and with the Used class:
+We examine the most contributing cells to the total Chi-square score redundancies among the 12 predictors and with the Used class by examining the Pearson $\chi^2$ residuals.
 
 ```{r correlation plot, message=FALSE, paged.print=FALSE}
 plot.corr
 ```
+
+With a maximum correlation of 
+`r max(abs(cormat-diag(dim(cormat)[1])))`
+none of the features are strongly correlated among each other or with the used class.
 
 Besides the goodness of fit to the test data, the demographic and personality-related observations above will guide the assessment of the models we derive. 
 
@@ -592,12 +595,19 @@ plot.model.fit
 
 # Results
 
-GBM: Little importance is given to the education variable.
-Improvement analysis -> what did the use of ML contribute
+Our best model (`r sprintf("%0.1f%%",(CM.nnet$overall)[1]*100)` accuracy) is obtained by training a neural network. It suggests that demographic factors have more impact on cannabis use than personality (top three importance factors).
+Besides offering the highest accuracy, the importance plot related to the model is largely consistent with results from the data exploration, notably that personality factors whose density distributions do not allow ot distinguish users from non-users also have a low importance score:
 
-Demographics have more impact than personality
++ N-scores and E-scores do not contribute much to the metric.
++ C-score, O-score, an Sensation-seeking are impactful.
++ However the low impact of Impulsivity is at variance with the observations from data exploration.
+
+It is interesting that the results from random forest modeling, while slightly less successful than those from the neural network, present a very different picture, with personality being the overwhelming factor determining cannabis comsumption (top six importance factors).
 
 # Conclusion
 
-Scope -> having used once in lifetime may not be telling. Could be interesting to bin never with over ten years ago ?
-Cannabis consumption is primarily a cultural phenomenon
+With demographics being the most significant predictors, the modeling suggests that cannabis consumption is primarily a cultural phenomenon.
+
+However, machine learning offers only a modest improvement 
+(`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`)
+over the naive approach. This suggests that classification lumping together participants that have never consumed cannabis on the one hand and those that have on the other may not be optimal, and that a potentially more insightful approach would take into account frequency of use (this information was nevertheless not available in the dataset). it might also be interesting to bin together Never users with those not having used over a long period of time.

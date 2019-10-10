@@ -223,8 +223,8 @@ propPlot <- function(df, labels, title){
     geom_text(aes(label = sprintf("%0.1f", round(Prop, digits = 1)), 
                   hjust = .4,
                   vjust = 1.5),
-              size = 5,
-              color = "grey25")
+              size = 4,
+              color = "grey30")
   return(plot)
 }
 propTable <- function(pred, labels){
@@ -460,6 +460,7 @@ corr_plot <- function(df, title) { # *** Main routine ***
   upper_tri <- get_upper_tri(cormat)
   upper_tri
   melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
   # Create the plot
   ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value)) +
     geom_tile(color = "white") +
@@ -501,7 +502,8 @@ df.cor <- df.cor %>% mutate(Used = as.integer(as.character(df.train$Used)))
 chisq <- chisq.test(df.cor, 
                     simulate.p.value = TRUE)
 #cormat <- as_tibble(corr_plot(chisq$residuals, "Feature correlation"))
-plot.corr <- corr_plot(chisq$residuals, "Feature correlation")
+cormat <- round(cor(chisq$residuals, method = 'pearson'), 2)
+plot.corr <- corr_plot(chisq$residuals, "Correlation heatmap")
 
 # C: Modeling
 #   Modeling plot parameters ####
@@ -775,6 +777,8 @@ model.fit <- tibble(
            CM.gbm$overall[metric],
            CM.nnet$overall[metric]))
 
+naive <- ((df.train %>% filter(Used == 1) %>% nrow()) / nrow(df.train) )
+
 plot.model.fit <- model.fit %>% 
   ggplot(aes(reorder(x = method, test), 
              y = test)) +
@@ -790,6 +794,8 @@ plot.model.fit <- model.fit %>%
                 hjust = 1.25),
             size=4,
             color = "white") +
+  geom_hline(linetype="dashed", yintercept  = naive, color = "red") +
+  geom_text(aes(0, naive, label = "naive", hjust = -1, vjust = -1), angle = 90, color = "red") +
   scale_y_continuous(breaks = seq(0, 1, .1),
                      labels = scales::percent_format(accuracy = 1)) +
   coord_flip()

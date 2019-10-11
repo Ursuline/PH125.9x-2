@@ -124,12 +124,10 @@ axis_text_size <- 10
 plot.use
 ```
 
-The training set consists of 
+The training set of `r df.train %>% nrow()` participants consists of 
 `r df.train %>% filter(Used == 1) %>% nrow()` 
-participants having used cannabis (at some point in their lives) and 
-`r df.train %>% filter(Used == 0) %>% nrow()` 
-participants who never have, for a user-to-non-user ratio of 1 :
-`r sprintf("%0.1f", round(df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow(), digits = 1))`
+participants (`r sprintf("%0.1f%%", round(df.train %>% filter(Used == 1) %>% nrow()/nrow(df.train)*100, digits = 1))`) having used cannabis and 
+`r df.train %>% filter(Used == 0) %>% nrow()` who never have (`r sprintf("%0.1f%%", round(df.train %>% filter(Used == 0) %>% nrow()/nrow(df.train)*100, digits = 1))`), for a user-to-non-user ratio of 1:`r sprintf("%0.1f", round(df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow(), digits = 1))`
 
 ### Contingency plots (prior to binning)
 
@@ -147,7 +145,7 @@ plot.balloon.country
 plot.balloon.ethn
 ```
 
-The dataset of `r df.train %>% nrow()` participants is dominated by young and educated white American and British participants of both sexes.
+The dataset is dominated by young and educated white American and British participants of both sexes.
 
 #### Binning
 The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. 
@@ -398,13 +396,30 @@ grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
              left = "Density")
 ```
 
-The density plots show a measure of difference between users and non-users particularly as it relates to openness to experience, agreeableness, conscientiousness, impulsivity, and seeking sensations. The observations are by and large consistent with intuition when it comes to openness to experience, impulsivity and seeking-senstions.
+For each test-score distribution, after checking for normality (Shapiro-Wilk test) we test the hypothesis that there is no difference between Users and Non-Users. We use the Student t-test if the data is normally distributed and the Mann-Whitney-Wilcoxon test otherwise.
+
+* Neuroticism: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Nscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Nscore.Used$p.value)`] < 0.05: the data are not normally distributed. 
+Wilcox p-value = `r sprintf("%0.2f",wilcox.Nscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+* Extraversion: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Escore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Escore.Used$p.value)`] > 0.05: the data are normally distributed. 
+t-test p-value = `r sprintf("%0.2f",t_test.Escore$p.value)` > 0.05: the 'User' and 'Non-User' populations are identical.
+* Openness to experience: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Oscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Oscore.Used$p.value)`] > 0.05: users are not normally distributed (but non-users are). 
+Wilcox p-value = `r sprintf("%0.2f",wilcox.Oscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+* Agreeableness: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Ascore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Ascore.Used$p.value)`] > 0.05: the data are normally distributed. 
+t-test p-value = `r sprintf("%0.2f",t_test.Ascore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+* Conscientiousness: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Cscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Cscore.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Cscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+* Impulsivity: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Impulsive.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Impulsive.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Impulsive$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+* Seeking sensations: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.SS.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.SS.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.SS$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+
+In summary: 
+```{r independence table, message=FALSE, paged.print=FALSE}
+table.indep %>% knitr::kable()
+```
+
+While significant overlap is observed, most personality-related density plots show differences between users and non-users. particularly as it relates to openness to experience, agreeableness, conscientiousness, impulsivity, and seeking sensations. The observations are by and large consistent with intuition when it comes to openness to experience, impulsivity and seeking-sensations.
 
 Some implications are rather entertaining, notably the notion that nice (Agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice. Likewise, either conscientious people tend to not use cannabis, or cannabis smoking tends to make people less meticulous.
 
-On the other hand, the distributions for users and non-users as they relate to neuroticism or extraversion are similar, suggesting that these personality traits may not impact cannabis consumption. We will examine in the modeling section below whether this observation is consistent with the results derived from machine learning.
-
- 
+On the other hand, the distributions for users and non-users as they relate to extraversion are statistically identical, suggesting that this personality trait may not impact cannabis consumption. We will examine in the modeling section below whether this observation is consistent with the results derived from machine learning.
 
 \newpage
 
@@ -546,7 +561,8 @@ After the RFE, we retain `r length(predictors)` predictors:
 plot.importance.rfe
 ```
 
-The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution plots: among the personality trait tests, N-score and E-score contribute the least while seeking sensation and O-score contribute the most. We did not expect ethnicity to be much of a factor and, although not eliminated by the RFE, this factor is the least significant contributor.
+The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution: among the personality trait tests, the E-score contributes the least, as expected from the results of the t-test aboce. Seeking sensation and O-score contribute the most, as expected. 
+We did not expect ethnicity to be much of a contributor and, although not eliminated by the RFE, this factor is by far the least significant.
 
 #### Modeling
 

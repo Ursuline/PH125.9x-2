@@ -295,6 +295,17 @@ plot.density.Nscore <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.Nscore.notUsed <- with(df.train, shapiro.test(Nscore[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.Nscore.Used <- with(df.train, shapiro.test(Nscore[Used == "1"]))
+
+# Are they identical?
+# Mann-Whitney-Wilcoxon test:
+wilcox.Nscore <- with(df.train, wilcox.test(Nscore[Used == "0"], Nscore[Used == "1"]))
+
 #     b. Extraversion ####
 # Extraversion (E-score) plot
 mean.score <- df.train %>% 
@@ -317,6 +328,18 @@ plot.density.Escore <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.Escore.notUsed <- with(df.train, shapiro.test(Escore[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.Escore.Used <- with(df.train, shapiro.test(Escore[Used == "1"]))
+
+# Are they identical?
+# Student t-test
+t_test.Escore <- 
+  with(df.train, t.test(Escore[Used == "0"], Escore[Used == "1"], var.equal = FALSE))
+
 #     c. Openness to experience ####
 # Openness to experience (O-score) plot 
 mean.score <- df.train %>% 
@@ -339,6 +362,17 @@ plot.density.Oscore <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.Oscore.notUsed <- with(df.train, shapiro.test(Oscore[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.Oscore.Used <- with(df.train, shapiro.test(Oscore[Used == "1"]))
+
+# Are they identical?
+# Mann-Whitney-Wilcoxon test:
+wilcox.Oscore <- with(df.train, wilcox.test(Oscore[Used == "0"], Oscore[Used == "1"]))
+
 #     d. Agreeableness ####
 # Agreeableness (A-score) plot]
 mean.score <- df.train %>% 
@@ -361,6 +395,18 @@ plot.density.Ascore <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.Ascore.notUsed <- with(df.train, shapiro.test(Ascore[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.Ascore.Used <- with(df.train, shapiro.test(Ascore[Used == "1"]))
+
+# Are they identical?
+# Student t-test
+t_test.Ascore <- 
+  with(df.train, t.test(Ascore[Used == "0"], Ascore[Used == "1"], var.equal = FALSE))
+
 #     e. Conscientiousness ####
 # Conscientiousness (C-score) plot
 mean.score <- df.train %>% 
@@ -383,6 +429,16 @@ plot.density.Cscore <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.Cscore.notUsed <- with(df.train, shapiro.test(Cscore[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.Cscore.Used <- with(df.train, shapiro.test(Cscore[Used == "1"]))
+
+# Mann-Whitney-Wilcoxon test:
+wilcox.Cscore <- with(df.train, wilcox.test(Cscore[Used == "0"], Cscore[Used == "1"]))
+
 #     f. Impulsivity ####
 # Impulsivity plot
 mean.score <- df.train %>% 
@@ -405,6 +461,15 @@ plot.density.Imp <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.Impulsive.notUsed <- with(df.train, shapiro.test(Impulsive[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.Impulsive.Used <- with(df.train, shapiro.test(Impulsive[Used == "1"]))
+
+# Mann-Whitney-Wilcoxon test:
+wilcox.Impulsive <- with(df.train, wilcox.test(Impulsive[Used == "0"], Impulsive[Used == "1"]))
 #     g. Sensation-seeking ####
 # Sensation-seeking plot
 mean.score <- df.train %>% 
@@ -425,6 +490,16 @@ plot.density.SS <- df.train %>%
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+# Are they normally distributed ?
+# Shapiro-Wilk normality test for Not Used
+shapiro.SS.notUsed <- with(df.train, shapiro.test(SS[Used == "0"]))
+# Shapiro-Wilk normality test for Used
+shapiro.SS.Used <- with(df.train, shapiro.test(SS[Used == "1"]))
+
+# Mann-Whitney-Wilcoxon test:
+wilcox.SS <- with(df.train, wilcox.test(SS[Used == "0"], SS[Used == "1"]))
+
 #     h. Personality plot ####
 plot.density.personality <- 
   grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
@@ -434,6 +509,15 @@ plot.density.personality <-
                                    c(7, 7, 7, NA, NA, NA)),
              top = "Personality test score distribution",
              left = "Density")
+
+table.indep <- 
+  tibble(Trait = c("Neuroticism", "Extraversion", "Openness to experience", 
+                   "Agreeableness", "Conscientiousness", "Impulsivity", 
+                   "Sensation-seeking"),
+         Difference = c("Different", "Identical", "Different", 
+                        "Different", "Different", "Different", 
+                        "Different"))
+
 #   Modeling plot parameters ####
 imp_text_size <-7
 
@@ -809,5 +893,3 @@ plot.model.fit <- model.fit %>%
   coord_flip()
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')
-
-

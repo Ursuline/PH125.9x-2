@@ -4,10 +4,10 @@ subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     number_sections: no
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -86,7 +86,7 @@ This report consists of two main sections:
 + In the first part, after performing minor data engineering, we explore, bin, and analyze the dataset. 
 + In the second part, we move on to the modeling phase:
 
-  * After applying the Recursive Feature Elimination algorithm to seek and potentially discard predictors that do not contribute significantly to the outcome, we build models based on the following six popular machine learning methods:
+  * After a 3-step preprocessing consisting of examining correlation among predictors, seeking low-variance factors and applying a Recursive Feature Elimination algorithm to seek and potentially discard predictors that do not contribute significantly to the outcome, we build models based on the following six popular machine learning methods:
   + Generalized linear model (glm)
   + Generalized linear model with penalized maximum likelihood (GLMnet)
   + Decision tree (rpart)
@@ -102,8 +102,8 @@ We compare the modeling approaches, both in terms of accuracy and coherence with
 
 ## A: Data engineering
 * All predictors were already normalized and centered in the original dataset.
-* We construct the 'Used' class to separate 'Never used' participants (0) from the others (1).
-* We then partition the data between training (80% - `r nrow(df.train)` participants) and test sets (20% - `r nrow(df.test)` participants), preserving the distribution of the Cannabis class.
+* We construct the 'Used' class to separate 'Non users' from 'Users'
+* We partition the data between training (80% - `r nrow(df.train)` participants) and test sets (20% - `r nrow(df.test)` participants), preserving the distribution of the Cannabis class.
 * There are `r sum(anyNA(df.raw))` NAs in the dataset as a whole (no interpolation to perform)
 
 ## B: Data exploration
@@ -149,7 +149,9 @@ The dataset is dominated by young and educated white American and British partic
 
 #### Binning
 The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. 
-At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information. In particular and in addition to the small individual population sizes, we can think of no valid reason to distinguish among those that left school before 16, at 16, at 17 or at 18 and lump these in a "Left school as a teen" group.
+At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information. In particular and in addition to the small individual population sizes, we can think of no rational reason to distinguish among those that left school before 16, at 16, at 17 or at 18 and lump these in a "Left school as a teen" group.
+
+We bin the data as:
 
 - 5 age groups: "18-24", "25-34", "35-44", "45-54", "55+"
 - 5 groups for Education: "Left school as a teen", "Some college", "Professional certificate", "University degree", "Masters degree" and "Doctorate".
@@ -221,170 +223,6 @@ This points to a generational phenomenon (for instance, roughly five times as ma
 
 \newpage
 ### Personality analysis
-```{r personality plot parameters, message=FALSE, warning=FALSE, paged.print=FALSE}
-breaks <- seq(-3, 3, .5)
-angle <- 60
-```
-```{r neuroticism, message=FALSE, paged.print=FALSE}
-# Neuroticism (N-score) plot
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(Nscore))
-
-NscoreDensityPlot <- df.train %>% 
-  ggplot(aes(x = Nscore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Neuroticism",
-       x = "N-score",
-       y = "") +
-  scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-```
-```{r extraversion, message=FALSE, paged.print=FALSE}
-# Extraversion (E-score) plot
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(Escore))
-
-EscoreDensityPlot <- df.train %>% 
-  ggplot(aes(x = Escore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Extraversion",
-       x = "E-score",
-       y = "") +
-  scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-```
-```{r openness to experience, message=FALSE, paged.print=FALSE}
-# Openness to experience (O-score) plot 
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(Oscore))
-
-OscoreDensityPlot <- df.train %>% 
-  ggplot(aes(x = Oscore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Openness to experience",
-       x = "O-score",
-       y = "") +
-  scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-```
-```{r agreeableness, message=FALSE, paged.print=FALSE}
-# Agreeableness (A-score) plot]
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(Ascore))
-
-AscoreDensityPlot <- df.train %>% 
-  ggplot(aes(x = Ascore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Agreeableness",
-       x = "A-score",
-       y = "") +
-  scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-```
-```{r conscientiousness, message=FALSE, paged.print=FALSE}
-# Conscientiousness (C-score) plot
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(Cscore))
-
-CscoreDensityPlot <- df.train %>% 
-  ggplot(aes(x = Cscore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Conscientiousness",
-       x = "C-score",
-       y = "") +
-  scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5)) +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-
-```
-```{r impulsiveness, message=FALSE, paged.print=FALSE}
-# Impulsiveness plot
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(Impulsive))
-
-ImpDensityPlot <- df.train %>% 
-  ggplot(aes(x = Impulsive, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Impulsivity",
-       x = "Impulsivity score",
-       y = "") +
-  scale_fill_manual(name = "Used?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5)) +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-```
-```{r SS, message=FALSE, paged.print=FALSE}
-# Sensation-seeking plot
-mean.score <- df.train %>% 
-  group_by(Used) %>% 
-  dplyr::summarize(count = n(), mean = mean(SS))
-
-SSDensityPlot <- df.train %>% 
-  ggplot(aes(x = SS, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Seeking sensations",
-                     x = "Sensation-seeking score",
-                     y = "") +
-  scale_fill_manual(name = "Used?", 
-                     values = c("0" = used_colors[1], "1" = used_colors[2]), 
-                     labels = c("No", "Yes")) +
-  scale_y_continuous(limits = c(0, .5)) +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
-```
 
 ```{r personality summary plot, message=FALSE, warning=FALSE, paged.print=FALSE}
 grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
@@ -396,7 +234,7 @@ grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
              left = "Density")
 ```
 
-For each test-score distribution, after checking for normality (Shapiro-Wilk test) we test the hypothesis that there is no difference between Users and Non-Users. We use the Student t-test if the data is normally distributed and the Mann-Whitney-Wilcoxon test otherwise.
+For each test-score distribution, after checking for normality (Shapiro-Wilk test) we test the hypothesis that there is no difference between Users and Non-Users. We use the Student t-test when the data is normally distributed and the Mann-Whitney-Wilcoxon test otherwise.
 
 * Neuroticism: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Nscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Nscore.Used$p.value)`] < 0.05: the data are not normally distributed. 
 Wilcox p-value = `r sprintf("%0.2f",wilcox.Nscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
@@ -410,6 +248,7 @@ t-test p-value = `r sprintf("%0.2f",t_test.Ascore$p.value)` < 0.05: the 'User' a
 * Impulsivity: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Impulsive.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Impulsive.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Impulsive$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
 * Seeking sensations: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.SS.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.SS.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.SS$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
 
+\newpage
 In summary: 
 ```{r independence table, message=FALSE, paged.print=FALSE}
 table.indep %>% knitr::kable()
@@ -430,7 +269,7 @@ imp_text_size <-7
 ```
 
 We seek a model which improves on the ratio of users to the population 
-(`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). 
+(`r sprintf("%0.1f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). 
 This constitutes the baseline above which predictive modeling is interesting.
 
 ### Pre-processing
@@ -592,23 +431,25 @@ plot.model.fit
 
 # Results
 
-The best model (`r sprintf("%0.1f%%",(CM.nnet$overall)[1]*100)` accuracy) is obtained by training a neural network. It suggests that demographic factors have more impact on cannabis use than personality (top three importance factors: ethnicity, gender and country of origin).
+None of the modeling approaches used provided an improvement over linear regression (`r sprintf("%0.1f%%",(CM.glm$overall)[1]*100)` accuracy). With linear regression, Country of origin, Age, Openness to experiment and Education are the factors contributing most to the accuracy. 
+
+The next best model (`r sprintf("%0.1f%%",(CM.nnet$overall)[1]*100)` accuracy) is obtained with a neural network. It suggests that demographic factors have more impact on cannabis use than personality (top three importance factors: country of origin, ethnicity, and age). Given the statistical similarity between the two ethnic groups discussed in the Personality analysis section, this model is somewhat unconvincing.
+
+While less accurate, the random forest model (`r sprintf("%0.1f%%",(CM.rf$overall)[1]*100)` accuracy) gives a preponderant importance to country of origin, sensation-seeking trait, age and openness to experiment). It also gives no importance to ethnicity and E-score and less than expected to gender.
+
 Besides offering the highest accuracy, the importance plot related to the model is largely consistent with results from the data exploration, notably personality factors whose density distributions do not allow to distinguish users from non-users, also have a low importance score:
 
 + N-scores and E-scores do not contribute much to the metric.
 + C-score, O-score, and Sensation-seeking are impactful.
 + However the low impact of Impulsivity is at variance with the observations from data exploration.
-+ The model attributes to ethnicity an importance we didn't expect from the exploration of the data.
 
-It is interesting that the results from random forest modeling, while slightly less successful than those from the neural network, present a very different picture, with personality being the overwhelming set of factors contributing to cannabis comsumption (top six importance factors). 
-
-For this dataset, the optimized GLM offers the weakest modeling technique, performing less well than the naive approach.
+For this dataset, the optimized GLM offers the weakest modeling technique (`r sprintf("%0.1f%%",(CM.glmnet$overall)[1]*100)` accuracy), performing less well than the naive approach (`r sprintf("%0.1f%%", naive*100)` accuracy).
 
 # Conclusion
 
-With demographic factors being more predictive than personality, the modeling suggests that cannabis consumption is primarily a cultural phenomenon.
+With demographic factors being more predictive than personality, the modeling suggests that cannabis consumption is first and foremost a cultural phenomenon.
 
-Leaving aside linear modeling, the neural network offers an improvement of (`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`) over the naive approach.
+Linear modeling, offers a (`r sprintf("%0.1f%%",((CM.glm$overall)[1]-naive)*100)`) improvement over the naive approach and the neural network (`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`).
 
 In a previous run, we had labelled non-users only those that had never used cannabis and users all the others. In that case, machine learning offered only a modest improvement (81.1% for the neural network compared to 78% with the naive approach)
-We felt this may be due to the choice of classification and that a potentially more insightful approach would take into account frequency of use (this information was nevertheless not available in the dataset). It might also be interesting to bin together Never users with those not having used over a long period of time.
+We felt this may be due to the choice of classification and that a potentially even more insightful analysis would take into account frequency of use (this information was nevertheless not available in the dataset). 

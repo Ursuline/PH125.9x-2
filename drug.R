@@ -53,7 +53,7 @@ trainIndex <- createDataPartition(df.raw$Used,
                                   times = 1)
 df.train <- df.raw[ trainIndex,]
 df.test  <- df.raw[-trainIndex,]
-# B: Data exploration
+# B: Data exploration ####
 #     Global plot parameters ####
 fill <- 'skyblue3'
 color <- 'grey'
@@ -135,7 +135,7 @@ rownames(cont.ethn) <- c("Black", "Asian", "White", "Mixed-White/Black",
                          "Other","Mixed-White/Asian", "Mixed-Black/Asian")
 plot.balloon.ethn <- balloon.plot(cont.ethn, "Ethnicity")
 
-#   Re-bin the data ####
+#     Re-bin the data ####
 df.train <- 
   df.train %>% 
   mutate(Country = ifelse(Country %in% c(-0.09765, 0.24923, -0.46841, 0.21128), -0.28519, Country)) %>%
@@ -151,9 +151,10 @@ df.test <-
   mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, # Dropped school
                             ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD
   mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
-#   3. Contingency plots ####
-#     Contingency plot utility ####
-demogPlot <- function(title, labels, x_axis_title){
+#   3. Analysis of demographics ####
+#     Contingency plots
+#       Contingency plot utility ####
+demogPlot <- function(title, labels, x_axis_title, legend){
   dP <- df.train %>%
     ggplot(aes(factor(.[,title]))) +
     geom_histogram(stat = "count",
@@ -168,47 +169,45 @@ demogPlot <- function(title, labels, x_axis_title){
                       labels = c("No", "Yes"),
                       guide = FALSE) +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  if (legend == "yes") {
+    dP <- dP + 
+      scale_fill_manual(name = "User?",
+                        values = c("0" = used_colors[1], "1" = used_colors[2]), 
+                        labels = c("No", "Yes"))
+  }
   return(dP)
 }
-#     a. Age  ####
+#       a. Age  ####
 title.age <- "Age"
 labels.age <- c("18-24", "25-34", "35-44", "45-54", "55+")
-plot.age <- demogPlot(title.age, labels.age, "years old")
+plot.age <- demogPlot(title.age, labels.age, "years old", "no")
 
-#     b. Gender ####
+#       b. Gender ####
 title.gender <- "Gender"
 labels.gender <- c("male", "female")
-plot.gender <- demogPlot(title.gender, labels.gender, "")
+plot.gender <- demogPlot(title.gender, labels.gender, "", "no")
 
-#     c. Education ####
+#       c. Education ####
 title.edu <- "Education"
 labels.edu <- c("Left school as teen", 
                 "Some college/univ.", 
                 "Prof. certif./diploma",
                 "Univ. degree", 
                 "Graduate degree")
-plot.edu <- demogPlot(title.edu, labels.edu, "")
+plot.edu <- demogPlot(title.edu, labels.edu, "", "yes")
 
-#     d. Country ####
+#       d. Country ####
 title.country <- "Country"
 labels.country <- c("USA", "Other", "UK")
-plot.country <- demogPlot(title.country, labels.country, "")
+plot.country <- demogPlot(title.country, labels.country, "", "no")
 
-#     e. Ethnicity ####
+#       e. Ethnicity ####
 title.ethn <- "Ethnicity"
 labels.ethn <- c("White", "Non-white")
-plot.ethn <- demogPlot(title.ethn, labels.ethn, "")
+plot.ethn <- demogPlot(title.ethn, labels.ethn, "", "no")
 
-#     f. Combine the 5 contingency plots ####
-plot.contingency <- grid.arrange(plot.country, plot.gender, plot.ethn,
-             plot.age, plot.edu,
-             layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
-                                   c(4, 4, 4, 5, 5, 5)),
-             top = "Use of cannabis in training set by:",
-             left = "Counts")
-
-#   4. Ratios ####
-#     Ratios utilities ####
+#     Ratios ####
+#       Ratios utilities ####
 propPlot <- function(df, labels, title, maxy){
   plot <- df %>%
     ggplot(aes(reorder(Var, -Prop), Prop)) +
@@ -247,29 +246,29 @@ propTable <- function(pred, labels){
   df.prop <- cbind(Var = labels, df.prop)
   return(df.prop)
 }
-#     a. Age ####
+#       a. Age ####
 table.age <- propTable('Age', labels.age)
 plot.prop.age <- propPlot(table.age, labels.age, "Age", 12)
 
-#     b. Gender ####
+#       b. Gender ####
 table.gender <- propTable('Gender', labels.gender)
 plot.prop.gender <- propPlot(table.gender, labels.gender, "Gender", 8)
 
-#     c. Education ####
+#       c. Education ####
 table.edu <- propTable('Education', labels.edu)
 plot.prop.edu <- propPlot(table.edu, labels.edu, "Education", 20)
 
-#     d. Country ####
+#       d. Country ####
 table.country <- propTable('Country', labels.country)
 plot.prop.country <- propPlot(table.country, labels.country, "Country", 32)
 
 (table.country %>% filter(Var == "USA"))$Prop
 
-#     e. Ethnicity ####
+#       e. Ethnicity ####
 table.ethn <- propTable('Ethnicity', labels.ethn)
 plot.prop.ethn <- propPlot(table.ethn, labels.ethn, "Ethnicity", 5)
 
-#   5. Personality analysis ####
+#   4. Personality analysis ####
 #     Personality analysis plot parameters ####
 breaks <- seq(-3, 3, .5)
 angle <- 60
@@ -285,7 +284,7 @@ plot.density.Nscore <- df.train %>%
   labs(title = "Neuroticism",
        x = "N-score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], 
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
@@ -318,7 +317,7 @@ plot.density.Escore <- df.train %>%
   labs(title = "Extraversion",
        x = "E-score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], 
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
@@ -352,7 +351,7 @@ plot.density.Oscore <- df.train %>%
   labs(title = "Openness to experience",
        x = "O-score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], 
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
@@ -385,7 +384,7 @@ plot.density.Ascore <- df.train %>%
   labs(title = "Agreeableness",
        x = "A-score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], 
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
@@ -419,7 +418,7 @@ plot.density.Cscore <- df.train %>%
   labs(title = "Conscientiousness",
        x = "C-score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], 
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
@@ -451,7 +450,7 @@ plot.density.Imp <- df.train %>%
   labs(title = "Impulsivity",
        x = "Impulsivity score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], 
                                "1" = used_colors[2]), 
                     labels = c("No", "Yes"),
@@ -482,7 +481,7 @@ plot.density.SS <- df.train %>%
   labs(title = "Seeking sensations",
        x = "Sensation-seeking score",
        y = "") +
-  scale_fill_manual(name = "Used?", 
+  scale_fill_manual(name = "User?", 
                     values = c("0" = used_colors[1], "1" = used_colors[2]), 
                     labels = c("No", "Yes")) +
   scale_y_continuous(limits = c(0, .5)) +
@@ -510,14 +509,18 @@ plot.density.personality <-
              top = "Personality test score distribution",
              left = "Density")
 
+# Summary table for t-tests/Wilcox
 table.indep <- 
   tibble(Trait = c("Neuroticism", "Extraversion", "Openness to experience", 
                    "Agreeableness", "Conscientiousness", "Impulsivity", 
                    "Sensation-seeking"),
-         Difference = c("Different", "Identical", "Different", 
-                        "Different", "Different", "Different", 
-                        "Different"))
+         p.value = c(sprintf("%0.3f", wilcox.Nscore$p.value), sprintf("%0.3f", t_test.Escore$p.value), sprintf("%0.3f", wilcox.Oscore$p.value), 
+                     sprintf("%0.3f", t_test.Ascore$p.value), sprintf("%0.3f", wilcox.Cscore$p.value), sprintf("%0.3f", wilcox.Impulsive$p.value), 
+                     sprintf("%0.3f", wilcox.SS$p.value)),
+         User_NonUser = c("Different", "Identical", "Different", "Different", 
+                        "Different", "Different", "Different"))
 
+# C: Modeling ####
 #   Modeling plot parameters ####
 imp_text_size <-7
 

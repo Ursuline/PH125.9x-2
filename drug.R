@@ -35,7 +35,7 @@ names(df.raw) <- c("Id", "Age", "Gender", "Education", "Country", "Ethnicity",
 
 #   Create 'Used' class ####
 # Create a 'Used' column to separate CL0 (never used) from the others 
-df.raw <- df.raw %>% mutate(Used = ifelse(Cannabis == "CL0", 0, 1))
+df.raw <- df.raw %>% mutate(Used = ifelse(Cannabis %in% c("CL0", "CL1", "CL2"), 0, 1))
 
 # Change the Used predictor to a factor
 df.raw[,'Used'] <- factor(as.character(df.raw[,'Used']))
@@ -63,9 +63,10 @@ used_colors <- c(fill_no, fill_yes) # No/Yes
 alpha <- 0.4 # alpha-blending
 axis_text_size <- 10
 #   1. Class distribution plot ####
-title <- paste("Frequency of cannabis use: ", 
-               "training set (", as.character(dim(df.train)[1]), 
-               "participants)")
+title <- paste("Frequency of cannabis use: training set (",
+               as.character(dim(df.train)[1]), 
+               " participants)", 
+               sep = '') # prevent blank space
 
 plot.use <- df.train %>% 
   ggplot(aes(Used)) + 
@@ -140,7 +141,7 @@ df.train <-
   mutate(Country = ifelse(Country %in% c(-0.09765, 0.24923, -0.46841, 0.21128), -0.28519, Country)) %>%
   mutate(Age = ifelse(Age == 2.59171, 1.82213, Age)) %>%
   mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, # Dropped school
-                            ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD 
+                            ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD
   mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
 
 df.test <- 
@@ -148,10 +149,10 @@ df.test <-
   mutate(Country = ifelse(Country %in% c(-0.09765, 0.24923, -0.46841, 0.21128), -0.28519, Country)) %>%
   mutate(Age = ifelse(Age == 2.59171, 1.82213, Age)) %>%
   mutate(Education = ifelse(Education %in% c(-2.43591, -1.73790, -1.43719), -1.22751, # Dropped school
-                            ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD 
+                            ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD
   mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
 #   3. Contingency plots ####
-#     Contingency plot utilities ####
+#     Contingency plot utility ####
 demogPlot <- function(title, labels, x_axis_title){
   dP <- df.train %>%
     ggplot(aes(factor(.[,title]))) +
@@ -208,7 +209,7 @@ plot.contingency <- grid.arrange(plot.country, plot.gender, plot.ethn,
 
 #   4. Ratios ####
 #     Ratios utilities ####
-propPlot <- function(df, labels, title){
+propPlot <- function(df, labels, title, maxy){
   plot <- df %>%
     ggplot(aes(reorder(Var, -Prop), Prop)) +
     geom_bar(stat = "identity", 
@@ -222,9 +223,10 @@ propPlot <- function(df, labels, title){
     theme(axis.text.x = element_text(angle = 35, hjust = 1))+
     geom_text(aes(label = sprintf("%0.1f", round(Prop, digits = 1)), 
                   hjust = .4,
-                  vjust = 1.5),
-              size = 4,
-              color = "grey30")
+                  vjust =-1),
+              size = 3,
+              color = "grey30") +
+    scale_y_continuous(limits = c(0, maxy))
   return(plot)
 }
 propTable <- function(pred, labels){
@@ -247,25 +249,25 @@ propTable <- function(pred, labels){
 }
 #     a. Age ####
 table.age <- propTable('Age', labels.age)
-plot.prop.age <- propPlot(table.age, labels.age, "Age")
+plot.prop.age <- propPlot(table.age, labels.age, "Age", 12)
 
 #     b. Gender ####
 table.gender <- propTable('Gender', labels.gender)
-plot.prop.gender <- propPlot(table.gender, labels.gender, "Gender")
+plot.prop.gender <- propPlot(table.gender, labels.gender, "Gender", 8)
 
 #     c. Education ####
 table.edu <- propTable('Education', labels.edu)
-plot.prop.edu <- propPlot(table.edu, labels.edu, "Education")
+plot.prop.edu <- propPlot(table.edu, labels.edu, "Education", 20)
 
 #     d. Country ####
 table.country <- propTable('Country', labels.country)
-plot.prop.country <- propPlot(table.country, labels.country, "Country")
+plot.prop.country <- propPlot(table.country, labels.country, "Country", 32)
 
 (table.country %>% filter(Var == "USA"))$Prop
 
 #     e. Ethnicity ####
 table.ethn <- propTable('Ethnicity', labels.ethn)
-plot.prop.ethn <- propPlot(table.ethn, labels.ethn, "Ethnicity")
+plot.prop.ethn <- propPlot(table.ethn, labels.ethn, "Ethnicity", 5)
 
 #   5. Personality analysis ####
 #     Personality analysis plot parameters ####
@@ -432,8 +434,12 @@ plot.density.personality <-
                                    c(7, 7, 7, NA, NA, NA)),
              top = "Personality test score distribution",
              left = "Density")
-#   6. Correlations ####
-#     Correlation plot utilities ####
+#   Modeling plot parameters ####
+imp_text_size <-7
+
+#   1. Pre-processing ####
+#     a. Correlation
+#       Correlation plot utilities ####
 # Get lower triangle of the correlation matrix
 get_lower_tri<-function(cormat){
   cormat[upper.tri(cormat)] <- NA
@@ -460,7 +466,7 @@ corr_plot <- function(df, title) { # *** Main routine ***
   upper_tri <- get_upper_tri(cormat)
   upper_tri
   melted_cormat <- melt(upper_tri, na.rm = TRUE)
-
+  
   # Create the plot
   ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value)) +
     geom_tile(color = "white") +
@@ -489,10 +495,10 @@ corr_plot <- function(df, title) { # *** Main routine ***
                                  title.position = "top", title.hjust = 0.5))
   #Return  heatmap
   return(ggheatmap)
-#  return(cormat)
+  #  return(cormat)
 }
 
-#     Correlation plot ####
+#       Correlation plot ####
 df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
                               Nscore, Escore, Oscore, Ascore, Cscore, 
                               Impulsive, SS)
@@ -506,11 +512,17 @@ cormat <- round(cor(chisq$residuals, method = 'pearson'), 2)
 plot.corr <- corr_plot(chisq$residuals, "Correlation heatmap")
 
 # C: Modeling
-#   Modeling plot parameters ####
-imp_text_size <-7
-
-#   1. RFE ####
+#     b. Analysis of low variance ####
+nzv <- nearZeroVar(df.train %>% select(-Used))
+#   2. RFE ####
 #     Wrapper for caret RFE ####
+
+# RFE controls
+rfeControl <- rfeControl(functions = rfFuncs,
+                      method = "repeatedcv",
+                      repeats = 10, # Change to 10 for final run
+                      verbose = FALSE)
+
 rfe_drug <- function(df, outcomeName){ 
 # Remove the id column
 df <- df %>% select(-Id) 
@@ -520,18 +532,13 @@ df$Used <- factor(df$Used,
                   levels = c(0, 1), 
                   labels = c("0", "1"))
 
-# RFE controls
-control <- rfeControl(functions = rfFuncs,
-                      method = "repeatedcv",
-                      repeats = 10, # Change to 10 for final run
-                      verbose = FALSE)
 # Exclude Class from the list of predictors
 predictors <- names(df)[!names(df) %in% outcomeName]
 
 # caret RFE Call
 pred_Profile <- rfe(df[ ,predictors], 
                     unlist(df[ ,outcomeName]), 
-                    rfeControl = control)
+                    rfeControl = rfeControl)
 return(pred_Profile)
 }
 #     a. RFE call ####
@@ -560,7 +567,7 @@ plot.importance.rfe <- imp %>% ggplot(aes(reorder(pred, imp$Overall), imp$Overal
        x = "Predictor",
        y ="Importance") +
   coord_flip()
-#   2. Training ####
+#   3. Training ####
 #     Training parameters ####
 fitControl <- trainControl( 
   method = "repeatedcv", # Repeated k-fold Cross-Validation
@@ -683,7 +690,6 @@ model.rf <- train(df.train[,predictors],
 # Plot predictors' relative importance
 plot.varImp.rf <- plot.varImp(model.rf, "RF")
 
-plot.varImp.rf
 CM.rf <- confusionMatrix(predict(model.rf, newdata = df.test), 
                          df.test$Used)
 #     e. Stochastic gradient boosting ####
@@ -701,8 +707,8 @@ CM.gbm.base <- confusionMatrix(predict(model.gbm.base, newdata = df.test),
 #       + GBM with parameter tuning ####
 max.depth <- floor(sqrt(NCOL(df.train)))
 # The grid values below were determined after many iterations
-grid.gbm <- expand.grid(n.trees = seq(195, 218, 1),
-                        shrinkage = seq(.01, .04, .01),
+grid.gbm <- expand.grid(n.trees = seq(190, 210, 1),
+                        shrinkage = seq(.01, .1, .01),
                         n.minobsinnode = 8,
                         interaction.depth = 3)
 set.seed(5)
@@ -712,15 +718,17 @@ invisible(capture.output( # Prevent caret::train gbm to print to stdout
                      as.factor(df.train[,outcomeName]),
                      method = 'gbm',
                      trControl = fitControl,
-                     tuneGrid = grid.gbm) # Prevent caret::train gbm to print to stdout too
+                     tuneGrid = grid.gbm) 
 ))
 
-plot(model.gbm, plotType = "level")
+plot.level.gbm <- plot(model.gbm, plotType = "level")
 resampleHist(model.gbm)
 plot.varImp.gbm <- plot.varImp(model.gbm, "GBM")
+max(model.gbm$results$Accuracy) # Fit to training data
 
 CM.gbm <- confusionMatrix(predict(model.gbm, newdata = df.test), 
                           df.test$Used)
+CM.gbm$overall["Accuracy"] # Fit to test data
 #     f. Neural network ####
 #       + NNET without parameter tuning ####
 set.seed(125)
@@ -801,4 +809,5 @@ plot.model.fit <- model.fit %>%
   coord_flip()
 # Save environment as drugEnvironment.RData####
 save.image(file='drugEnvironment.RData')
+
 

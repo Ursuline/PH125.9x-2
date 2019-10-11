@@ -4,10 +4,10 @@ subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     number_sections: no
-    toc: yes
-  pdf_document:
     toc: yes
 ---
 
@@ -38,25 +38,6 @@ if(!require(gbm)) install.packages("gbm", repos = "http://cran.us.r-project.org"
 load("drugEnvironment.RData")
 ```
 
-```{r load data, message=TRUE, warning=TRUE}
-# Remote / local flag
-remote <- 0
-
-if(remote == 1) { # Load data file from github repository
-  df.raw <- read.table("https://raw.githubusercontent.com/Ursuline/PH125.9x-2/master/data/drug_consumption.csv", 
-                      header = FALSE,
-                      sep = ",")
-} else { # Load local copy
-df.raw <- read.csv("./data/drug_consumption.csv", header = FALSE)
-}
-# Add a header row
-names(df.raw) <- c("Id", "Age", "Gender", "Education", "Country", "Ethnicity",
-                   "Nscore", "Escore", "Oscore", "Ascore", "Cscore", "Impulsive", "SS",
-                   "Alcohol", "Amphet", "Amyl", "Benzos", "Caff", "Cannabis", "Choc", 
-                   "Coke", "Crack", "Ecstasy", "Heroin", "Ketamine","Legalh", "LSD", 
-                   "Meth", "Mushrooms", "Nicotine", "Semer", "VSA")
-```
-
 # Executive Summary
 
 ## + Introduction
@@ -76,9 +57,9 @@ To do so, we build and assess the effectiveness of six machine learning classifi
 The original dataset is found on the [UCI machine learning repository](https://archive.ics.uci.edu/ml/datasets/Drug+consumption+%28quantified%29).
 It is based the research paper by E. Fehrman, A. K. Muhammad, E. M. Mirkes, V. Egan and A. N. Gorban, ["The Five Factor Model of personality and evaluation of drug consumption risk.," arXiv, 2015](https://arxiv.org/abs/1506.06297). The data was collected from 1885 English-speaking participants over 18 years of age between March 2011 and March 2012.
 
-In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Never Used' (the original predictor) and 'Used' (the combination of the others, representing people having used cannabis at least once in their lifetime).
-
 The original dataset includes answers to questions related to the use of alcohol, amphetamines, amyl nitrite, benzodiazepines, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, magic mushrooms, nicotine and volatile substance abuse (VSA)) and one fictitious drug (Semeron) which was introduced to identify over-claimers. In the present study, we restrict our scope to the analysis of cannabis consumption.
+
+In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Non-Users' which is a combination of 'Never used', 'Used over a decade ago', 'Used in last decade', and 'Used' (the combination of the others, concisting of 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'). We therefore create a classification that distinguishes those that have either never used cannabis or used it at least a decade ago and which we refer to as 'Non-users' from those that have used it more recently which we call 'Users'.
 
 The data consists of two groups of pre-normalized and centered predictors: 
 
@@ -121,34 +102,9 @@ We compare the modeling approaches, both in terms of accuracy and coherence with
 
 ## A: Data engineering
 * All predictors were already normalized and centered in the original dataset.
-
 * We construct the 'Used' class to separate 'Never used' participants (0) from the others (1).
-
-```{r add Used class, message=FALSE, paged.print=FALSE}
-# Create a 'Used' column to separate CL0 (never used) from the others 
-df.raw <- df.raw %>% mutate(Used = ifelse(Cannabis == "CL0", 0, 1))
-
-# Change the Used predictor to a factor
-df.raw[,'Used'] <- factor(as.character(df.raw[,'Used']))
-
-# Keep Used as the only Class. 
-df.raw <- df.raw %>% 
-  select("Id", "Age", "Gender", "Education", "Country", "Ethnicity", "Nscore", 
-         "Escore", "Oscore", "Ascore", "Cscore", "Impulsive", "SS", 
-         "Used")
-```
-
-* We then partition the data between training (80% / df.train) and test sets (20% / df.test) preserving the distribution of the Cannabis class.
-
-```{r training / testing partition, message=FALSE, paged.print=FALSE}
-set.seed(15)
-trainIndex <- createDataPartition(df.raw$Used, 
-                                  p = .8, 
-                                  list = FALSE, 
-                                  times = 1)
-df.train <- df.raw[ trainIndex,]
-df.test  <- df.raw[-trainIndex,]
-```
+* We then partition the data between training (80% - `r nrow(df.train)` participants) and test sets (20% - `r nrow(df.test)` participants), preserving the distribution of the Cannabis class.
+* There are `r sum(anyNA(df.raw))` NAs in the dataset as a whole (no interpolation to perform)
 
 ## B: Data exploration
 ```{r plot parameters, message=FALSE, warning=FALSE, paged.print=FALSE}
@@ -162,7 +118,6 @@ alpha <- 0.4 # alpha-blending
 axis_text_size <- 10
 ```
 
-* There are `r sum(anyNA(df.raw))` NAs in the dataset.
 
 #### Class distribution
 ```{r overall consumption, message=FALSE, warning=FALSE, paged.print=FALSE}
@@ -171,10 +126,10 @@ plot.use
 
 The training set consists of 
 `r df.train %>% filter(Used == 1) %>% nrow()` 
-participants having used cannabis at some pioint in their lives and 
+participants having used cannabis (at some point in their lives) and 
 `r df.train %>% filter(Used == 0) %>% nrow()` 
-participants who haven't for a user-to-non-user ratio of 1:
-`r sprintf("%0.1f", round(df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow(), digits = 1))`.
+participants who never have, for a user-to-non-user ratio of 1 :
+`r sprintf("%0.1f", round(df.train %>% filter(Used == 1) %>% nrow()/df.train %>% filter(Used == 0) %>% nrow(), digits = 1))`
 
 ### Contingency plots (prior to binning)
 
@@ -195,12 +150,13 @@ plot.balloon.ethn
 The dataset of `r df.train %>% nrow()` participants is dominated by young and educated white American and British participants of both sexes.
 
 #### Binning
-The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information:
+The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. 
+At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information. In particular and in addition to the small individual population sizes, we can think of no valid reason to distinguish among those that left school before 16, at 16, at 17 or at 18 and lump these in a "Left school as a teen" group.
 
 - 5 age groups: "18-24", "25-34", "35-44", "45-54", "55+"
-- 5 groups for Education: "Left school as a teen", "Some college", "Professional certificate", "University degree", "Graduate degree".
+- 5 groups for Education: "Left school as a teen", "Some college", "Professional certificate", "University degree", "Masters degree" and "Doctorate".
 - 3 groups for Country: "USA", "UK", "Others".
-- 2 ethnic groups: "Whites", "Non-whites"
+- 2 ethnic groups: "Whites", "Non-whites".
 
 ```{r rebin demographics, message=FALSE, paged.print=FALSE}
 df.train <- 
@@ -230,6 +186,8 @@ grid.arrange(plot.country, plot.gender, plot.ethn,
              left = "Counts")
 ```
 
+Users outnumber non-users in many demographic sub-group, particularly for men, in the USA, among 18-24 year olds and for those that didn't complete a college degree. In the modeling phase, we therefore expect the corresponding predictors (country, age group, education and gender) to have significant weight.
+
 ```{r ratio plot, message=FALSE, warning=FALSE, paged.print=FALSE}
 grid.arrange(plot.prop.country, plot.prop.gender, plot.prop.ethn,
              plot.prop.age, plot.prop.edu,
@@ -239,22 +197,29 @@ grid.arrange(plot.prop.country, plot.prop.gender, plot.prop.ethn,
              left = "ratio(Users : Non-Users)")
 ```
 
-* Americans consume more cannabis per capita 
-(`r sprintf("%0.1f", round((table.country %>% filter(Var == "USA"))$Prop, digits = 1))`) 
-than the British 
+For better readability of the differences among them, we use the ratio of users to non-users as index of consumption for each demographic sub-group.
+
+* Americans consume more cannabis (`r sprintf("%0.1f", round((table.country %>% filter(Var == "USA"))$Prop, digits = 1))`) 
+than all other nationalities, and particularly the British 
 (`r sprintf("%0.1f", round((table.country %>% filter(Var == "UK"))$Prop, digits = 1))`) 
-or other countries in the study 
-(`r sprintf("%0.1f", round((table.country %>% filter(Var == "Other"))$Prop, digits = 1))`) 
+who, along with females 
+(`r sprintf("%0.1f", round((table.gender %>% filter(Var == "female"))$Prop, digits = 1))`), 
+people over 34 years of age and people with degrees, are among the lowest using group with more non-consumers than consumers.
 * Men consume more 
 (`r sprintf("%0.1f", round((table.gender %>% filter(Var == "male"))$Prop, digits = 1))`)
 than women
 (`r sprintf("%0.1f", round((table.gender %>% filter(Var == "female"))$Prop, digits = 1))`)
-
-* Whites consume more 
+* Whites consume about the same as other ethnic groups 
 (`r sprintf("%0.1f", round((table.ethn %>% filter(Var == "White"))$Prop, digits = 1))`)
-than non-whites
+and we do not expect ethnicity to be a significant factor.
 (`r sprintf("%0.1f", round((table.ethn %>% filter(Var == "Non-white"))$Prop, digits = 1))`)
-
+* Those having only had some college/university are the highest users in the education sub-group
+(`r sprintf("%0.1f", round((table.edu %>% filter(Var == "Some college/univ."))$Prop, digits = 1))`)
+* Finally, we observe a steady decline of cannabis use with age from 18-24 year olds
+(`r sprintf("%0.1f", round((table.age %>% filter(Var == "18-24"))$Prop, digits = 1))`)
+to participants over 55
+(`r sprintf("%0.1f", round((table.age %>% filter(Var == "55+"))$Prop, digits = 1))`)
+This points to a generational phenomenon (for instance, roughly five times as many 25-34 year-olds abstain when compared to 18-24 years olds, even though they have had ten additional years to experiment). 
 
 \newpage
 ### Personality analysis
@@ -433,12 +398,28 @@ grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
              left = "Density")
 ```
 
-The density plots show some measure of difference between users and non-users particularly as it relates to either openness to experience, agreeableness, conscientiousness, impulsivity, and sensation-seeking. 
-Some implications are rather entertaining, notably the notion that nice (ie: agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice.
+The density plots show a measure of difference between users and non-users particularly as it relates to openness to experience, agreeableness, conscientiousness, impulsivity, and seeking sensations. The observations are by and large consistent with intuition when it comes to openness to experience, impulsivity and seeking-senstions.
 
-On the other hand, the distributions for users and non-users as they relate to  neuroticism or extraversion are similar, suggesting that these personality traits may not impact cannabis consumption. We will examine in the modeling section below whether this observation is consistent with the results derived from machine learning.
+Some implications are rather entertaining, notably the notion that nice (Agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice. Likewise, either conscientious people tend to not use cannabis, or cannabis smoking tends to make people less meticulous.
 
-### Feature correlation
+On the other hand, the distributions for users and non-users as they relate to neuroticism or extraversion are similar, suggesting that these personality traits may not impact cannabis consumption. We will examine in the modeling section below whether this observation is consistent with the results derived from machine learning.
+
+ 
+
+\newpage
+
+## C: Modeling
+
+```{r modeling plot parameters}
+imp_text_size <-7
+```
+
+We seek a model which improves on the ratio of users to the population 
+(`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). 
+This constitutes the baseline above which predictive modeling is interesting.
+
+### Pre-processing
+#### Feature correlation
 ```{r correlation matrix utilities, message=FALSE, paged.print=FALSE}
 # *** Utilities for correlation matrix plot
 # Get lower triangle of the correlation matrix
@@ -510,19 +491,10 @@ With a maximum correlation of
 `r max(abs(cormat-diag(dim(cormat)[1])))`
 none of the features are strongly correlated among each other or with the used class.
 
-Besides the goodness of fit to the test data, the demographic and personality-related observations above will guide the assessment of the models we derive. 
+Besides the goodness of fit to the test data, the demographic and personality-related observations above will guide the assessment of the models we derive.
 
-\newpage
-
-## C: Modeling
-
-```{r modeling plot parameters}
-imp_text_size <-7
-```
-
-We seek a model which improves on the ratio of users to the population 
-(`r sprintf("%0.2f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). 
-This constitutes the baseline above which predictive modeling is interesting.
+#### Low-variance analysis
+There are 0 variables that meet the low-variance removal threshold.
 
 ### Recursive Feature elimination
 ```{r rfe wrapper, message=FALSE, paged.print=FALSE}
@@ -574,7 +546,15 @@ After the RFE, we retain `r length(predictors)` predictors:
 plot.importance.rfe
 ```
 
-The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution plots: among the personality trait tests, N-score and E-score contribute the least while seeking sensation and O-score contribute the most. However, the impulsivity doesn't seem to be as strong a factor as one might have expected from the density plots.
+The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution plots: among the personality trait tests, N-score and E-score contribute the least while seeking sensation and O-score contribute the most. We did not expect ethnicity to be much of a factor and, although not eliminated by the RFE, this factor is the least significant contributor.
+
+#### Modeling
+
+Our approach consists, for each of the six methods used, in starting off by training an unoptimized model which is in turn used as the starting point before determining an set of optimal tuning parameters by cross-validation. The example below is the method used to determine the number of boosting iterations and shrinkage for the Stochastic gradient boosting algorithm. A similar method is used for the neural network and the random forest.
+
+```{r gbm plot, message=FALSE, paged.print=FALSE}
+plot.level.gbm
+```
 
 ### Model comparisons
 ```{r variable importance plots, fig.height=10, fig.width=8, message=FALSE, paged.print=FALSE}
@@ -593,21 +573,26 @@ grid.arrange(plot.varImp.glm, plot.varImp.glmnet,
 plot.model.fit
 ```
 
+
 # Results
 
-Our best model (`r sprintf("%0.1f%%",(CM.nnet$overall)[1]*100)` accuracy) is obtained by training a neural network. It suggests that demographic factors have more impact on cannabis use than personality (top three importance factors).
-Besides offering the highest accuracy, the importance plot related to the model is largely consistent with results from the data exploration, notably that personality factors whose density distributions do not allow ot distinguish users from non-users also have a low importance score:
+The best model (`r sprintf("%0.1f%%",(CM.nnet$overall)[1]*100)` accuracy) is obtained by training a neural network. It suggests that demographic factors have more impact on cannabis use than personality (top three importance factors: ethnicity, gender and country of origin).
+Besides offering the highest accuracy, the importance plot related to the model is largely consistent with results from the data exploration, notably personality factors whose density distributions do not allow to distinguish users from non-users, also have a low importance score:
 
 + N-scores and E-scores do not contribute much to the metric.
-+ C-score, O-score, an Sensation-seeking are impactful.
++ C-score, O-score, and Sensation-seeking are impactful.
 + However the low impact of Impulsivity is at variance with the observations from data exploration.
++ The model attributes to ethnicity an importance we didn't expect from the exploration of the data.
 
-It is interesting that the results from random forest modeling, while slightly less successful than those from the neural network, present a very different picture, with personality being the overwhelming factor determining cannabis comsumption (top six importance factors).
+It is interesting that the results from random forest modeling, while slightly less successful than those from the neural network, present a very different picture, with personality being the overwhelming set of factors contributing to cannabis comsumption (top six importance factors). 
+
+For this dataset, the optimized GLM offers the weakest modeling technique, performing less well than the naive approach.
 
 # Conclusion
 
-With demographics being the most significant predictors, the modeling suggests that cannabis consumption is primarily a cultural phenomenon.
+With demographic factors being more predictive than personality, the modeling suggests that cannabis consumption is primarily a cultural phenomenon.
 
-However, machine learning offers only a modest improvement 
-(`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`)
-over the naive approach. This suggests that classification lumping together participants that have never consumed cannabis on the one hand and those that have on the other may not be optimal, and that a potentially more insightful approach would take into account frequency of use (this information was nevertheless not available in the dataset). it might also be interesting to bin together Never users with those not having used over a long period of time.
+Leaving aside linear modeling, the neural network offers an improvement of (`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`) over the naive approach.
+
+In a previous run, we had labelled non-users only those that had never used cannabis and users all the others. In that case, machine learning offered only a modest improvement (81.1% for the neural network compared to 78% with the naive approach)
+We felt this may be due to the choice of classification and that a potentially more insightful approach would take into account frequency of use (this information was nevertheless not available in the dataset). It might also be interesting to bin together Never users with those not having used over a long period of time.

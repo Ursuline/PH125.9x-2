@@ -152,7 +152,7 @@ df.test <-
                             ifelse(Education == 1.98437, 1.16365, Education))) %>% # Merge MS & PhD
   mutate(Ethnicity = ifelse(Ethnicity != -0.31685, 0.11440, Ethnicity))
 #   3. Analysis of demographics ####
-#     Contingency plots
+#     Contingency plots ####
 #       Contingency plot utility ####
 demogPlot <- function(title, labels, x_axis_title, legend){
   dP <- df.train %>%
@@ -220,7 +220,7 @@ propPlot <- function(df, labels, title, maxy){
          y = "") +
     theme(text = element_text(size = axis_text_size)) +
     theme(axis.text.x = element_text(angle = 35, hjust = 1))+
-    geom_text(aes(label = sprintf("%0.1f", round(Prop, digits = 1)), 
+    geom_text(aes(label = sprintf("%0.1f", Prop), 
                   hjust = .4,
                   vjust =-1),
               size = 3,
@@ -831,7 +831,7 @@ CM.nnet.base <- confusionMatrix(predict(model.nnet.base, newdata = df.test),
                                 df.test$Used)
 #       + NNET with parameter tuning ####
 grid.nnet <- expand.grid(size = c(1:6),
-                         decay = seq(0.1, 0.5, 0.1))
+                         decay = seq(0.2, 0.3, 0.01))
 set.seed(125)
 invisible(capture.output( # Prevent caret::train nnet to print to stdout
   model.nnet <- train(df.train[,predictors],
@@ -885,7 +885,7 @@ plot.model.fit <- model.fit %>%
   labs(title = "Model comparison",
        x = "",
        y = "Fit to test set") +
-  geom_text(aes(label = sprintf("%0.2f%%", round(test*100, digits = 1)), 
+  geom_text(aes(label = sprintf("%0.2f%%", test*100), 
                 hjust = 1.25),
             size=4,
             color = "white") +

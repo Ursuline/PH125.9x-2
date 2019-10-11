@@ -4,10 +4,10 @@ subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
 date: "10/8/2019"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     number_sections: no
-    toc: yes
-  pdf_document:
     toc: yes
 ---
 
@@ -254,11 +254,11 @@ In summary:
 table.indep %>% knitr::kable()
 ```
 
-While significant overlap is observed, most personality-related density plots show differences between users and non-users. particularly as it relates to openness to experience, agreeableness, conscientiousness, impulsivity, and seeking sensations. The observations are by and large consistent with intuition when it comes to openness to experience, impulsivity and seeking-sensations.
+While significant overlap is observed, most personality-related density plots show significant differences in the mean between users and non-users. particularly as it relates to openness to experience, agreeableness, conscientiousness, impulsivity, and seeking sensations. The observations are by and large consistent with intuition when it comes to openness to experience, impulsivity and seeking-sensations.
 
 Some implications are rather entertaining, notably the notion that nice (Agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice. Likewise, either conscientious people tend to not use cannabis, or cannabis smoking tends to make people less meticulous.
 
-On the other hand, the distributions for users and non-users as they relate to extraversion are statistically identical, suggesting that this personality trait may not impact cannabis consumption. We will examine in the modeling section below whether this observation is consistent with the results derived from machine learning.
+On the other hand, the distribution means for users and non-users as they relate to extraversion are statistically identical, suggesting that this personality trait may not impact cannabis consumption. The modeling section below examines whether this observation is consistent with the results derived from machine learning.
 
 \newpage
 
@@ -270,7 +270,7 @@ imp_text_size <-7
 
 We seek a model which improves on the ratio of users to the population 
 (`r sprintf("%0.1f%%", round((df.train %>% filter(Used == 1) %>% nrow()) / (nrow(df.train))*100, digits = 1))`). 
-This constitutes the baseline above which predictive modeling is interesting.
+This naive approach constitutes the baseline above which predictive modeling is interesting.
 
 ### Pre-processing
 #### Feature correlation
@@ -431,17 +431,34 @@ plot.model.fit
 
 # Results
 
-None of the modeling approaches used provided an improvement over linear regression (`r sprintf("%0.1f%%",(CM.glm$overall)[1]*100)` accuracy). With linear regression, Country of origin, Age, Openness to experiment and Education are the factors contributing most to the accuracy. 
+None of the modeling approaches used provided an improvement over linear regression (`r sprintf("%0.1f%%",(CM.glm$overall)[1]*100)` accuracy). Besides offering the highest accuracy, the importance plot related to the model is consistent with results from the data exploration, notably personality factors whose density distributions do not allow to distinguish users from non-users, also have a low importance score:
+
++ N-scores and E-scores do not contribute much to the metric.
++ O-score, and Sensation-seeking have a significant importance
++ However the low impact of Impulsivity is at variance with the observations from data exploration.Country of origin, Age, Openness to experiment and Education are the factors contributing most to the accuracy. 
+
+The confusion matrix for the GLM model has high sensitivity and specificity:
+```{r CM glm, message=FALSE, paged.print=FALSE}
+CM.glm
+```
 
 The next best model (`r sprintf("%0.1f%%",(CM.nnet$overall)[1]*100)` accuracy) is obtained with a neural network. It suggests that demographic factors have more impact on cannabis use than personality (top three importance factors: country of origin, ethnicity, and age). Given the statistical similarity between the two ethnic groups discussed in the Personality analysis section, this model is somewhat unconvincing.
 
+The confusion matrix for the neural network model is :
+```{r CM nnet, message=FALSE, paged.print=FALSE}
+CM.nnet
+```
+
+With 0 (Non-user) as the 'positive' class, the 3-point decrease in sensitivity indicates a drop in this model's ability to predict Non-users. 
+
 While less accurate, the random forest model (`r sprintf("%0.1f%%",(CM.rf$overall)[1]*100)` accuracy) gives a preponderant importance to country of origin, sensation-seeking trait, age and openness to experiment). It also gives no importance to ethnicity and E-score and less than expected to gender.
 
-Besides offering the highest accuracy, the importance plot related to the model is largely consistent with results from the data exploration, notably personality factors whose density distributions do not allow to distinguish users from non-users, also have a low importance score:
+The confusion matrix for the random forest model is :
+```{r CM rf, message=FALSE, paged.print=FALSE}
+CM.rf
+```
 
-+ N-scores and E-scores do not contribute much to the metric.
-+ C-score, O-score, and Sensation-seeking are impactful.
-+ However the low impact of Impulsivity is at variance with the observations from data exploration.
+With RF also, the decrease in sensitivity indicates a drop in this model's ability to predict Non-users.
 
 For this dataset, the optimized GLM offers the weakest modeling technique (`r sprintf("%0.1f%%",(CM.glmnet$overall)[1]*100)` accuracy), performing less well than the naive approach (`r sprintf("%0.1f%%", naive*100)` accuracy).
 
@@ -449,7 +466,7 @@ For this dataset, the optimized GLM offers the weakest modeling technique (`r sp
 
 With demographic factors being more predictive than personality, the modeling suggests that cannabis consumption is first and foremost a cultural phenomenon.
 
-Linear modeling, offers a (`r sprintf("%0.1f%%",((CM.glm$overall)[1]-naive)*100)`) improvement over the naive approach and the neural network (`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`).
+Generalized linear modeling offers the highest improvement (`r sprintf("%0.1f%%",((CM.glm$overall)[1]-naive)*100)`) over the naive approach and the neural network (`r sprintf("%0.1f%%",((CM.nnet$overall)[1]-naive)*100)`). While both values are similar,the GLM model agrees better with the results from the exploration and statistical analysis of the data.
 
 In a previous run, we had labelled non-users only those that had never used cannabis and users all the others. In that case, machine learning offered only a modest improvement (81.1% for the neural network compared to 78% with the naive approach)
-We felt this may be due to the choice of classification and that a potentially even more insightful analysis would take into account frequency of use (this information was nevertheless not available in the dataset). 
+We felt this may be due to the choice of classification and that a potentially more insightful analysis would take into account frequency of use (this information was nevertheless not available in the dataset). 

@@ -2,7 +2,7 @@
 title: "Predicting Cannabis Consumption from Demographics and Personality"
 subtitle: "HarvardX PH125.9x Data Science Capstone"
 author: "Charles Mégnin"
-date: "10/8/2019"
+date: "10/12/2019"
 output:
   pdf_document:
     toc: yes
@@ -34,6 +34,7 @@ if(!require(ggthemes)) install.packages("ggthemes", repos = "http://cran.us.r-pr
 if(!require(gplots)) install.packages("gplots", repos = "http://cran.us.r-project.org")
 if(!require(graphics)) install.packages("graphics", repos = "http://cran.us.r-project.org")
 if(!require(reshape2)) install.packages("reshape2", repos = "http://cran.us.r-project.org")
+
 if(!require(gbm)) install.packages("gbm", repos = "http://cran.us.r-project.org")
 load("drugEnvironment.RData")
 ```
@@ -54,12 +55,12 @@ To do so, we build and assess the effectiveness of six machine learning classifi
 
 ## + Dataset description
 
-The original dataset is found on the [UCI machine learning repository](https://archive.ics.uci.edu/ml/datasets/Drug+consumption+%28quantified%29).
+The dataset used here is found on the [UCI machine learning repository](https://archive.ics.uci.edu/ml/datasets/Drug+consumption+%28quantified%29).
 It is based the research paper by E. Fehrman, A. K. Muhammad, E. M. Mirkes, V. Egan and A. N. Gorban, ["The Five Factor Model of personality and evaluation of drug consumption risk.," arXiv, 2015](https://arxiv.org/abs/1506.06297). The data was collected from 1885 English-speaking participants over 18 years of age between March 2011 and March 2012.
 
 The original dataset includes answers to questions related to the use of alcohol, amphetamines, amyl nitrite, benzodiazepines, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, magic mushrooms, nicotine and volatile substance abuse (VSA)) and one fictitious drug (Semeron) which was introduced to identify over-claimers. In the present study, we restrict our scope to the analysis of cannabis consumption.
 
-In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Non-Users' which is a combination of 'Never used', 'Used over a decade ago', 'Used in last decade', and 'Used' (the combination of the others, concisting of 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'). We therefore create a classification that distinguishes those that have either never used cannabis or used it at least a decade ago and which we refer to as 'Non-users' from those that have used it more recently which we call 'Users'.
+In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Non-Users' which is a combination of 'Never used', 'Used over a decade ago', 'Used in last decade', and 'Used' (the combination of the others, concisting of 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'). We create a classification that distinguishes those that have either never used cannabis or used it a decade ago or more and which we refer to as 'Non-users', from those that have used it more recently which we call 'Users'.
 
 The data consists of two groups of pre-normalized and centered predictors: 
 
@@ -75,24 +76,23 @@ The data consists of two groups of pre-normalized and centered predictors:
   + Impulsiveness;
   + Sensation-seeking.
 
-The working dataset in this study therefore consists of one Class (Cannabis consumption labeled 'Used') and twelve predictors (five demographic and seven personality-related).
+The working dataset in this study consists therefore of one Class (Cannabis consumption) and twelve predictors (five demographic and seven personality-related).
 
 ## + Key steps
 
 We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluation. This being a classification problem, we use accuracy as the metric to assess the goodness of fit.
 
-This report consists of two main sections:
+The report consists of two main sections:
 
-+ In the first part, after performing minor data engineering, we explore, bin, and analyze the dataset. 
-+ In the second part, we move on to the modeling phase:
-
+1. In the first part, after performing minor data engineering, we bin, explore, and analyze the dataset. 
+2. In the second part, we move on to the modeling phase:
   * After a 3-step preprocessing consisting of examining correlation among predictors, seeking low-variance factors and applying a Recursive Feature Elimination algorithm to seek and potentially discard predictors that do not contribute significantly to the outcome, we build models based on the following six popular machine learning methods:
-  + Generalized linear model (glm)
-  + Generalized linear model with penalized maximum likelihood (GLMnet)
-  + Decision tree (rpart)
-  + Random forest (rf)
-  + Stochastic gradient boosting (gbm)
-  + Neural network (nnet)
+    + Generalized linear model (glm)
+    + Generalized linear model with penalized maximum likelihood (GLMnet)
+    + Decision tree (rpart)
+    + Random forest (rf)
+    + Stochastic gradient boosting (gbm)
+    + Neural network (nnet)
 
 We compare the modeling approaches, both in terms of accuracy and coherence with the data analysis.
 
@@ -101,10 +101,10 @@ We compare the modeling approaches, both in terms of accuracy and coherence with
 # Analysis
 
 ## A: Data engineering
-* All predictors were already normalized and centered in the original dataset.
-* We construct the 'Used' class to separate 'Non users' from 'Users'
-* We partition the data between training (80% - `r nrow(df.train)` participants) and test sets (20% - `r nrow(df.test)` participants), preserving the distribution of the Cannabis class.
-* There are `r sum(anyNA(df.raw))` NAs in the dataset as a whole (no interpolation to perform)
+* All predictors were already normalized and centered in the original dataset;
+* We construct the 'Used' class to separate 'Non users' from 'Users';
+* We partition the data between training (80% - `r nrow(df.train)` participants) and test sets (20% - `r nrow(df.test)` participants), preserving the distribution of the Cannabis class;
+* There are `r sum(anyNA(df.raw))` NAs in the dataset as a whole (no interpolation or imputation to perform)
 
 ## B: Data exploration
 ```{r plot parameters, message=FALSE, warning=FALSE, paged.print=FALSE}
@@ -117,7 +117,6 @@ used_colors <- c(fill_no, fill_yes) # No/Yes
 alpha <- 0.4 # alpha-blending
 axis_text_size <- 10
 ```
-
 
 #### Class distribution
 ```{r overall consumption, message=FALSE, warning=FALSE, paged.print=FALSE}
@@ -393,22 +392,56 @@ For RFE as well as subsequent modeling, we use the k-fold cross validation metho
 plot.profile.rfe
 ```
 
-After the RFE, we retain `r length(predictors)` predictors: 
+After the RFE, we retain `r length(predictors)` features: 
 `r predictors`
 
 ```{r rfe importance plot, message=FALSE, paged.print=FALSE}
 plot.importance.rfe
 ```
 
-The comparative analysis of the contribution of each factor agrees by and large with that of the density distribution: among the personality trait tests, the E-score contributes the least, as expected from the results of the t-test aboce. Seeking sensation and O-score contribute the most, as expected. 
+The comparative analysis of the contribution of each feature agrees by and large with that of the density distribution: among the personality trait tests, the E-score contributes the least, as expected from the results of the t-test aboce. Seeking sensation and O-score contribute the most, as expected. 
 We did not expect ethnicity to be much of a contributor and, although not eliminated by the RFE, this factor is by far the least significant.
 
 #### Modeling
 
-Our approach consists, for each of the six methods used, in starting off by training an unoptimized model which is in turn used as the starting point before determining an set of optimal tuning parameters by cross-validation. The example below is the method used to determine the number of boosting iterations and shrinkage for the Stochastic gradient boosting algorithm. A similar method is used for the neural network and the random forest.
+Our approach consists, for each of the six methods used, in starting off by training an unoptimized model which is in turn used as the starting point before determining a set of optimal tuning parameters by cross-validation. 
 
-```{r gbm plot, message=FALSE, paged.print=FALSE}
-plot.level.gbm
+##### GLMnet
+
+Glmnet is a package that fits a generalized linear model via penalized maximum likelihood. The regularization path is computed for the lasso or elasticnet penalty at a grid of values for the regularization parameter lambda
+
+Optimization of parameters for the glmnet model:
+
+```{r glmnet plot, fig.height=5, fig.width=8, message=FALSE, paged.print=FALSE}
+plot(model.glmnet, main = "GLMnet")
+```
+
+##### Decision trees
+
+```{r rpart plot, fig.height=5, fig.width=8, message=FALSE, paged.print=FALSE}
+plot(model.rpart, main = "rpart")
+```
+
+##### Random forest
+
+```{r rf plot, fig.height=5, fig.width=8, message=FALSE, paged.print=FALSE}
+plot(model.rf, main = "rf")
+```
+
+##### Stochastic gradient boosting
+
+Optimal values of shrinkage and boosting iterations for the gbm model:
+
+```{r gbm plot, fig.height=5, fig.width=8, message=FALSE, paged.print=FALSE}
+plot(model.gbm, main = "gbm")
+```
+
+##### Neural network
+
+Optimal values of decay and number of hidden units for the neural network:
+
+```{r nnet plot, fig.height=5, fig.width=8, message=FALSE, paged.print=FALSE}
+plot(model.nnet, main = "rf")
 ```
 
 ### Model comparisons
@@ -418,7 +451,7 @@ grid.arrange(plot.varImp.glm, plot.varImp.glmnet,
              plot.varImp.rpart, plot.varImp.rf,
              plot.varImp.gbm, plot.varImp.nnet,
              nrow = 3,
-             top = "Model predictor importance",
+             top = "Model feature importance",
              left = "Predictor",
              bottom = "Importance"
 )
@@ -428,16 +461,19 @@ grid.arrange(plot.varImp.glm, plot.varImp.glmnet,
 plot.model.fit
 ```
 
+\newpage
 
 # Results
 
-None of the modeling approaches used provided an improvement over linear regression (`r sprintf("%0.1f%%",(CM.glm$overall)[1]*100)` accuracy). Besides offering the highest accuracy, the importance plot related to the model is consistent with results from the data exploration, notably personality factors whose density distributions do not allow to distinguish users from non-users, also have a low importance score:
+None of the modeling approaches used provided an improvement over generalized linear regression (`r sprintf("%0.1f%%",(CM.glm$overall)[1]*100)` accuracy). Besides offering the highest accuracy, the importance plot related to the glm model is by and large consistent with results from the data exploration:
 
-+ N-scores and E-scores do not contribute much to the metric.
-+ O-score, and Sensation-seeking have a significant importance
-+ However the low impact of Impulsivity is at variance with the observations from data exploration.Country of origin, Age, Openness to experiment and Education are the factors contributing most to the accuracy. 
++ Country of origin, Age, Openness to experiment and Education are the factors contributing most to the accuracy. 
++ Edu ation and Sensation-seeking have a significant importance
++ Ethnicity, N-scores and E-scores and  do not contribute much to the metric.
++ However the low impact of Impulsivity is at variance with the observations from data exploration. 
 
-The confusion matrix for the GLM model has high sensitivity and specificity:
+The confusion matrix for the GLM model has a sensitivity of (`r sprintf("%0.2f", CM.glm$byClass["Sensitivity"])`) and specificity of (`r sprintf("%0.2f", CM.glm$byClass["Specificity"])`):
+
 ```{r CM glm, message=FALSE, paged.print=FALSE}
 CM.glm
 ```
@@ -449,7 +485,7 @@ The confusion matrix for the neural network model is :
 CM.nnet
 ```
 
-With 0 (Non-user) as the 'positive' class, the 3-point decrease in sensitivity indicates a drop in this model's ability to predict Non-users. 
+With 0 (Non-user) as the 'positive' class, the 3-point decrease in sensitivity (`r sprintf("%0.2f", CM.nnet$byClass["Sensitivity"])`) indicates a drop in this model's ability to predict Non-users. 
 
 While less accurate, the random forest model (`r sprintf("%0.1f%%",(CM.rf$overall)[1]*100)` accuracy) gives a preponderant importance to country of origin, sensation-seeking trait, age and openness to experiment). It also gives no importance to ethnicity and E-score and less than expected to gender.
 
@@ -458,7 +494,7 @@ The confusion matrix for the random forest model is :
 CM.rf
 ```
 
-With RF also, the decrease in sensitivity indicates a drop in this model's ability to predict Non-users.
+With RF also, the decrease in sensitivity (`r sprintf("%0.2f", CM.rf$byClass["Sensitivity"])`) indicates a drop in this model's ability to predict Non-users.
 
 For this dataset, the optimized GLM offers the weakest modeling technique (`r sprintf("%0.1f%%",(CM.glmnet$overall)[1]*100)` accuracy), performing less well than the naive approach (`r sprintf("%0.1f%%", naive*100)` accuracy).
 

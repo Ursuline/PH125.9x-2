@@ -585,7 +585,7 @@ corr_plot <- function(df, title) { # *** Main routine ***
   #  return(cormat)
 }
 
-#       Correlation plot ####
+#     a. Correlation plot ####
 df.cor <- df.train %>% select(Age, Gender, Education, Country, Ethnicity, 
                               Nscore, Escore, Oscore, Ascore, Cscore, 
                               Impulsive, SS)
@@ -601,8 +601,8 @@ plot.corr <- corr_plot(chisq$residuals, "Correlation heatmap")
 # C: Modeling
 #     b. Analysis of low variance ####
 nzv <- nearZeroVar(df.train %>% select(-Used))
-#   2. RFE ####
-#     Wrapper for caret RFE ####
+#     c. RFE ####
+#       Wrapper for caret RFE ####
 
 # RFE controls
 rfeControl <- rfeControl(functions = rfFuncs,
@@ -628,20 +628,20 @@ pred_Profile <- rfe(df[ ,predictors],
                     rfeControl = rfeControl)
 return(pred_Profile)
 }
-#     a. RFE call ####
+#       i. RFE call ####
 outcomeName <- "Used"
 set.seed(5)
 rfe_Profile <- rfe_drug(df.train, outcomeName)
 #rfe_Profile
 predictors <- predictors(rfe_Profile)
 imp <- varImp(rfe_Profile, scale = TRUE)
-#     b. RFE profile plot ####
+#       ii. RFE profile plot ####
 plot.profile.rfe <- 
   plot(rfe_Profile, type=c("g", "o"), 
        cex = 1.0, 
        col = 1:length(predictors))
 
-#     c. RFE importance plot ####
+#       iii. RFE importance plot ####
 imp <- tibble(pred = rownames(imp),  imp)
 colnames(imp) <- c("pred", "imp")
 
@@ -650,11 +650,11 @@ plot.importance.rfe <- imp %>% ggplot(aes(reorder(pred, imp$Overall), imp$Overal
            width = .25,
            aes(fill = I(fill),
                color = I(color))) +
-  labs(title = "Predictor importance from RFE",
+  labs(title = "Feature importance from RFE",
        x = "Predictor",
        y ="Importance") +
   coord_flip()
-#   3. Training ####
+#   2. Training ####
 #     Training parameters ####
 fitControl <- trainControl( 
   method = "repeatedcv", # Repeated k-fold Cross-Validation
@@ -692,6 +692,7 @@ plot.varImp.glm <- plot.varImp(model.glm, "GLM")
 
 CM.glm <- confusionMatrix(predict(model.glm, newdata = df.test), 
                           df.test$Used)
+CM.glm$byClass["Specificity"]
 #     b. Generalized linear model with penalized maximum likelihood ####
 #       + GLMnet without parameter tuning ####
 set.seed(35)
@@ -752,6 +753,7 @@ plot.varImp.rpart <- plot.varImp(model.rpart, "RPART")
 
 CM.rpart <- confusionMatrix(predict(model.rpart, newdata = df.test), 
                             df.test$Used)
+
 #     d. Random forest ####
 #       + RF without parameter tuning ####
 set.seed(25)
@@ -779,6 +781,7 @@ plot.varImp.rf <- plot.varImp(model.rf, "RF")
 
 CM.rf <- confusionMatrix(predict(model.rf, newdata = df.test), 
                          df.test$Used)
+
 #     e. Stochastic gradient boosting ####
 #       + GBM without parameter tuning ####
 set.seed(5)
@@ -843,7 +846,7 @@ invisible(capture.output( # Prevent caret::train nnet to print to stdout
 ))
 
 # Heat map of the contribution of the size and decay parameters
-plot(model.nnet, plotType = "level")
+plot.level.nnet <- plot(model.nnet, plotType = "level")
 
 # Plot predictors' relative importance
 plot.varImp.nnet <- plot.varImp(model.nnet, "NNET")
@@ -851,6 +854,7 @@ plot.varImp.nnet <- plot.varImp(model.nnet, "NNET")
 CM.nnet <- confusionMatrix(predict(model.nnet, newdata = df.test), 
                            df.test$Used)
 #     g. Model comparisons ####
+
 #       + Fit comparisons ####
 model.fit <- tibble(
   method = c("GLM",

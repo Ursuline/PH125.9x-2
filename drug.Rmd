@@ -60,9 +60,11 @@ It is based the research paper by E. Fehrman, A. K. Muhammad, E. M. Mirkes, V. E
 
 The original dataset includes answers to questions related to the use of alcohol, amphetamines, amyl nitrite, benzodiazepines, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, magic mushrooms, nicotine and volatile substance abuse (VSA)) and one fictitious drug (Semeron) which was introduced to identify over-claimers. In the present study, we restrict our scope to the analysis of cannabis consumption.
 
-In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Non-Users' which is a combination of 'Never used', 'Used over a decade ago', 'Used in last decade', and 'Used' (the combination of the others, concisting of 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'). We create a classification that distinguishes those that have either never used cannabis or used it a decade ago or more and which we refer to as 'Non-users', from those that have used it more recently which we call 'Users'.
+In the original dataset, drug use is separated between 'Never used', 'Used over a decade ago', 'Used in last decade', 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'. For the purpose of this study, we separate the data in two groups: 'Non-Users' which is a combination of 'Never used', 'Used over a decade ago', 'Used in last decade', and 'Used' (the combination of the others, concisting of 'Used in last year', 'Used in last month', 'Used in last week' and 'Used in last day'). 
 
-The data consists of two groups of pre-normalized and centered predictors: 
+We create a classification that distinguishes those that have either never used cannabis or used it a decade ago or more and which we refer to as 'Non-users', from those that have used it more recently which we call 'Users'. This nomenclature is used for convenience, not for its negative connotation. We chose to bin the data this way as we find the ten-year mark to be a reasonable dividing line between those with no interest in cannabis use from those who occasionally or regularly consume it.
+
+The features in the data can be separated in two groups of pre-normalized and centered predictors: 
 
 1. Five demographic predictors : Age, Gender, Level of education, Ethnicity, and Country of origin.
 
@@ -82,10 +84,10 @@ The working dataset in this study consists therefore of one Class (Cannabis cons
 
 We extract a training subset (80% of data) from the dataset for the purpose of training our model, and use the remaining 20% of the data as a test set for the purpose of evaluation. This being a classification problem, we use accuracy as the metric to assess the goodness of fit.
 
-The report consists of two main sections:
+The analysis consists of two main sections:
 
-1. In the first part, after performing minor data engineering, we bin, explore, and analyze the dataset. 
-2. In the second part, we move on to the modeling phase:
+1. In the first part, after performing minor data engineering (A), we bin, explore, and analyze the dataset (B). 
+2. In the second part, we move on to the modeling phase (C):
   * After a 3-step preprocessing consisting of examining correlation among predictors, seeking low-variance factors and applying a Recursive Feature Elimination algorithm to seek and potentially discard predictors that do not contribute significantly to the outcome, we build models based on the following six popular machine learning methods:
     + Generalized linear model (glm)
     + Generalized linear model with penalized maximum likelihood (GLMnet)
@@ -150,7 +152,7 @@ The dataset is dominated by young and educated white American and British partic
 The small size of many demographic sub-groups add little valuable insight and will likely only serve to introduce variance in the analysis. 
 At the risk of erasing behavioral differences among groups, the distribution of the dataset forces a more meaningful binning of the demographic information. In particular and in addition to the small individual population sizes, we can think of no rational reason to distinguish among those that left school before 16, at 16, at 17 or at 18 and lump these in a "Left school as a teen" group.
 
-We bin the data as:
+Visual inspection of the balloon plots above provide a straightforward path to  binning the data as:
 
 - 5 age groups: "18-24", "25-34", "35-44", "45-54", "55+"
 - 5 groups for Education: "Left school as a teen", "Some college", "Professional certificate", "University degree", "Masters degree" and "Doctorate".
@@ -223,12 +225,35 @@ This points to a generational phenomenon (for instance, roughly five times as ma
 \newpage
 ### Personality analysis
 
-```{r personality summary plot, message=FALSE, warning=FALSE, paged.print=FALSE}
-grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
-             plot.density.Ascore, plot.density.Cscore, plot.density.Imp, plot.density.SS,
-             layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
-                                   c(4, 4, 5, 5, 6, 6), 
-                                   c(7, 7, 7, NA, NA, NA)),
+```{r personality box plot, fig.height=10, fig.width=8, message=FALSE, warning=FALSE, paged.print=FALSE}
+grid.arrange(plot.box.Nscore + theme(legend.position="none"), 
+             plot.box.Escore + theme(legend.position="none"), 
+             plot.box.Oscore + theme(legend.position="none"),
+             plot.box.Ascore + theme(legend.position="none"), 
+             plot.box.Cscore + theme(legend.position="none"), 
+             plot.box.Imp + theme(legend.position="none"), 
+             plot.box.SS,
+               layout_matrix = rbind(c(1, 1, 2, 2),
+                                   c(3, 3, 4, 4),
+                                   c(5, 5, 6, 6), 
+                                   c(7, 7, NA, NA)),
+               top = "Personality test score distribution",
+               bottom = "",
+               left = "")
+```
+
+```{r personality summary plot, fig.height=10, fig.width=8, message=FALSE, warning=FALSE, paged.print=FALSE}
+grid.arrange(plot.density.Nscore + theme(legend.position="none"), 
+             plot.density.Escore + theme(legend.position="none"), 
+             plot.density.Oscore + theme(legend.position="none"),
+             plot.density.Ascore + theme(legend.position="none"), 
+             plot.density.Cscore + theme(legend.position="none"), 
+             plot.density.Imp + theme(legend.position="none"), 
+             plot.density.SS,
+               layout_matrix = rbind(c(1, 1, 2, 2),
+                                   c(3, 3, 4, 4),
+                                   c(5, 5, 6, 6), 
+                                   c(7, 7, NA, NA)),
              top = "Personality test score distribution",
              left = "Density")
 ```
@@ -236,18 +261,17 @@ grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
 For each test-score distribution, after checking for normality (Shapiro-Wilk test) we test the hypothesis that there is no difference between Users and Non-Users. We use the Student t-test when the data is normally distributed and the Mann-Whitney-Wilcoxon test otherwise.
 
 * Neuroticism: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Nscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Nscore.Used$p.value)`] < 0.05: the data are not normally distributed. 
-Wilcox p-value = `r sprintf("%0.2f",wilcox.Nscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+Wilcox p-value = `r sprintf("%0.2f",wilcox.Nscore$p.value)` < 0.05: the 'User' and 'Non-User' population means are not identical.
 * Extraversion: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Escore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Escore.Used$p.value)`] > 0.05: the data are normally distributed. 
-t-test p-value = `r sprintf("%0.2f",t_test.Escore$p.value)` > 0.05: the 'User' and 'Non-User' populations are identical.
+t-test p-value = `r sprintf("%0.2f",t_test.Escore$p.value)` > 0.05: the 'User' and 'Non-User' population means are identical. For the variance, t-test p-value = `r sprintf("%0.2f",t_test.var.Escore$p.value)` > 0.05: the 'User' and 'Non-User' population variances are also identical. 
 * Openness to experience: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Oscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Oscore.Used$p.value)`] > 0.05: users are not normally distributed (but non-users are). 
-Wilcox p-value = `r sprintf("%0.2f",wilcox.Oscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+Wilcox p-value = `r sprintf("%0.2f",wilcox.Oscore$p.value)` < 0.05: the 'User' and 'Non-User' population means are not identical.
 * Agreeableness: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Ascore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Ascore.Used$p.value)`] > 0.05: the data are normally distributed. 
-t-test p-value = `r sprintf("%0.2f",t_test.Ascore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
-* Conscientiousness: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Cscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Cscore.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Cscore$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
-* Impulsivity: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Impulsive.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Impulsive.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Impulsive$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
-* Seeking sensations: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.SS.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.SS.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.SS$p.value)` < 0.05: the 'User' and 'Non-User' populations are not identical.
+t-test p-value = `r sprintf("%0.2f",t_test.Ascore$p.value)` < 0.05: the 'User' and 'Non-User' population means are not identical.
+* Conscientiousness: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Cscore.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Cscore.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Cscore$p.value)` < 0.05: the 'User' and 'Non-User' population means are not identical.
+* Impulsivity: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.Impulsive.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.Impulsive.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.Impulsive$p.value)` < 0.05: the 'User' and 'Non-User' population means are not identical.
+* Seeking sensations: Shapiro p-values = [Not Used: `r sprintf("%0.2f",shapiro.SS.notUsed$p.value)`, Used: `r sprintf("%0.2f",shapiro.SS.Used$p.value)`] < 0.05:  the data are not normally distributed. Wilcox p-value = `r sprintf("%0.2f",wilcox.SS$p.value)` < 0.05: the 'User' and 'Non-User' population means are not identical.
 
-\newpage
 In summary: 
 ```{r independence table, message=FALSE, paged.print=FALSE}
 table.indep %>% knitr::kable()
@@ -257,7 +281,7 @@ While significant overlap is observed, most personality-related density plots sh
 
 Some implications are rather entertaining, notably the notion that nice (Agreeable) people may be less likely to smoke cannabis, or conversely that exposure to pot might make people less nice. Likewise, either conscientious people tend to not use cannabis, or cannabis smoking tends to make people less meticulous.
 
-On the other hand, the distribution means for users and non-users as they relate to extraversion are statistically identical, suggesting that this personality trait may not impact cannabis consumption. The modeling section below examines whether this observation is consistent with the results derived from machine learning.
+On the other hand, the distribution means and variances for users and non-users as they relate to extraversion are statistically identical, suggesting that this personality trait may not impact cannabis consumption. The modeling section below examines whether this observation is consistent with the results derived from machine learning.
 
 \newpage
 

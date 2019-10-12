@@ -15,7 +15,7 @@ if(!require(gbm)) install.packages("gbm", repos = "http://cran.us.r-project.org"
 
 # Load data ####
 # Remote / local flag
-remote <- 0
+remote <- 1
 
 if(remote == 1) { # Load data file from github repository
   df.raw <- read.table("https://raw.githubusercontent.com/Ursuline/PH125.9x-2/master/data/drug_consumption.csv", 
@@ -270,30 +270,61 @@ plot.prop.ethn <- propPlot(table.ethn, labels.ethn, "Ethnicity", 5)
 
 #   4. Personality analysis ####
 #     Personality analysis plot parameters ####
-breaks <- seq(-3, 3, .5)
+breaks <- seq(-3, 3, .75)
 angle <- 60
+jitter_width <- 0.02
+jitter_size <- 1
+#     Personality analysis plot utilities ####
+plot.box.personality <- function(df, feature, title, y.axis.title) {
+  plot <- df %>% 
+    ggplot(aes(y = .[,feature], x = Used, fill = Used, color = I(color))) +
+    geom_boxplot()  +
+    labs(title = title,
+         y = y.axis.title,
+         x = "") +
+    scale_fill_manual(values = c("0" = used_colors[1], 
+                                 "1" = used_colors[2]), 
+                      labels = c("No", "Yes")) +
+    scale_y_continuous(limits = c(-3, 3), breaks = breaks)+
+    scale_x_discrete(labels = c("No", "Yes")) + 
+    geom_jitter(width = jitter_width, size = jitter_size)
+  return(plot)
+}
+
+plot.density.personality <- function(df, feature, title, x.axis.title) {
+  plot <- df %>% 
+    ggplot(aes(x = .[,feature], fill = Used, color = I(color))) +
+    geom_density(alpha = alpha) +
+    labs(title = title,
+         x = x.axis.title,
+         y = "") +
+    scale_fill_manual(name = "User?", 
+                      values = c("0" = used_colors[1], 
+                                 "1" = used_colors[2]), 
+                      labels = c("No", "Yes")) +
+    scale_y_continuous(limits = c(0, .5)) +
+    scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+    geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+    geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
+    theme(axis.text.x = element_text(angle = angle, hjust = 1))
+  return(plot)
+}
 #     a. Neuroticism ####
 # Neuroticism (N-score) plot
 mean.score <- df.train %>% 
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Nscore))
 
-plot.density.Nscore <- df.train %>% 
-  ggplot(aes(x = Nscore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Neuroticism",
-       x = "N-score",
-       y = "") +
-  scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+# Box plot
+feature.Nscore <- "Nscore"
+title.Nscore <- "Neuroticism"
+title.y.Nscore <- "N-score"
+plot.box.Nscore <- 
+  plot.box.personality(df.train, feature.Nscore, title.Nscore, title.y.Nscore)
+
+# Density plot
+plot.density.Nscore <- 
+  plot.density.personality(df.train, feature.Nscore, title.Nscore, title.y.Nscore)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -311,22 +342,16 @@ mean.score <- df.train %>%
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Escore))
 
-plot.density.Escore <- df.train %>% 
-  ggplot(aes(x = Escore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Extraversion",
-       x = "E-score",
-       y = "") +
-  scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2])+
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+# Box plot
+feature.Escore <- "Escore"
+title.Escore <- "Extraversion"
+title.y.Escore <- "E-score"
+plot.box.Escore <- 
+  plot.box.personality(df.train, feature.Escore, title.Escore, title.y.Escore)
+
+# Density plot
+plot.density.Escore <- 
+  plot.density.personality(df.train, feature.Escore, title.Escore, title.y.Escore)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -335,9 +360,12 @@ shapiro.Escore.notUsed <- with(df.train, shapiro.test(Escore[Used == "0"]))
 shapiro.Escore.Used <- with(df.train, shapiro.test(Escore[Used == "1"]))
 
 # Are they identical?
-# Student t-test
+# Student t-test (mean)
 t_test.Escore <- 
   with(df.train, t.test(Escore[Used == "0"], Escore[Used == "1"], var.equal = FALSE))
+# Student t-test (variance)
+t_test.var.Escore <- 
+  with(df.train, t.test(Escore[Used == "0"], Escore[Used == "1"], var.equal = TRUE))
 
 #     c. Openness to experience ####
 # Openness to experience (O-score) plot 
@@ -345,22 +373,16 @@ mean.score <- df.train %>%
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Oscore))
 
-plot.density.Oscore <- df.train %>% 
-  ggplot(aes(x = Oscore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Openness to experience",
-       x = "O-score",
-       y = "") +
-  scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+# Box plot
+feature.Oscore <- "Oscore"
+title.Oscore <- "Openness to experience"
+title.y.Oscore <- "O-score"
+plot.box.Oscore <- 
+  plot.box.personality(df.train, feature.Oscore, title.Oscore, title.y.Oscore)
+
+# Density plot
+plot.density.Oscore <- 
+  plot.density.personality(df.train, feature.Oscore, title.Oscore, title.y.Oscore)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -378,22 +400,16 @@ mean.score <- df.train %>%
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Ascore))
 
-plot.density.Ascore <- df.train %>% 
-  ggplot(aes(x = Ascore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Agreeableness",
-       x = "A-score",
-       y = "") +
-  scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5))  +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+# Box plot
+feature.Ascore <- "Ascore"
+title.Ascore <- "Agreeableness"
+title.y.Ascore <- "A-score"
+plot.box.Ascore <- 
+  plot.box.personality(df.train, feature.Ascore, title.Ascore, title.y.Ascore)
+
+# Density plot
+plot.density.Ascore <- 
+  plot.density.personality(df.train, feature.Ascore, title.Ascore, title.y.Ascore)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -412,22 +428,16 @@ mean.score <- df.train %>%
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Cscore))
 
-plot.density.Cscore <- df.train %>% 
-  ggplot(aes(x = Cscore, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Conscientiousness",
-       x = "C-score",
-       y = "") +
-  scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5)) +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+# Box plot
+feature.Cscore <- "Cscore"
+title.Cscore <- "Conscientiousness"
+title.y.Cscore <- "C-score"
+plot.box.Cscore <- 
+  plot.box.personality(df.train, feature.Cscore, title.Cscore, title.y.Cscore)
+
+# Density plot
+plot.density.Cscore <- 
+  plot.density.personality(df.train, feature.Cscore, title.Cscore, title.y.Cscore)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -444,22 +454,16 @@ mean.score <- df.train %>%
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(Impulsive))
 
-plot.density.Imp <- df.train %>% 
-  ggplot(aes(x = Impulsive, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
-  labs(title = "Impulsivity",
-       x = "Impulsivity score",
-       y = "") +
-  scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], 
-                               "1" = used_colors[2]), 
-                    labels = c("No", "Yes"),
-                    guide = FALSE) +
-  scale_y_continuous(limits = c(0, .5)) +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+# Box plot
+feature.Imp <- "Impulsive"
+title.Imp <- "Impulsivity"
+title.y.Imp <- "Impulsivity"
+plot.box.Imp <- 
+  plot.box.personality(df.train, feature.Imp, title.Imp, title.y.Imp)
+
+# Density plot
+plot.density.Imp <- 
+  plot.density.personality(df.train, feature.Imp, title.Imp, title.y.Imp)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -475,20 +479,45 @@ mean.score <- df.train %>%
   group_by(Used) %>% 
   dplyr::summarize(count = n(), mean = mean(SS))
 
-plot.density.SS <- df.train %>% 
-  ggplot(aes(x = SS, fill = Used, color = I(color))) +
-  geom_density(alpha = alpha) +
+# Box plot
+feature.SS <- "SS"
+title.SS <- "Seeking sensations"
+title.y.SS <- "Seeking sensations"
+plot.box.SS <- 
+  plot.box.personality(df.train, feature.SS, title.SS, title.y.SS)
+
+# Density plot
+plot.density.SS <- 
+  plot.density.personality(df.train, feature.SS, title.SS, title.y.SS)
+
+# plot.density.SS <- df.train %>% 
+#   ggplot(aes(x = SS, fill = Used, color = I(color))) +
+#   geom_density(alpha = alpha) +
+#   labs(title = "Seeking sensations",
+#        x = "Sensation-seeking score",
+#        y = "") +
+#   scale_fill_manual(name = "User?", 
+#                     values = c("0" = used_colors[1], "1" = used_colors[2]), 
+#                     labels = c("No", "Yes")) +
+#   scale_y_continuous(limits = c(0, .5)) +
+#   scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
+#   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
+#   geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
+#   theme(axis.text.x = element_text(angle = angle, hjust = 1))
+
+plot.box.SS <- df.train %>% 
+  ggplot(aes(y = SS, x = Used, fill = Used, color = I(color))) +
+  geom_boxplot()  +
   labs(title = "Seeking sensations",
-       x = "Sensation-seeking score",
-       y = "") +
+       y = "Seeking sensations",
+       x = "") +
   scale_fill_manual(name = "User?", 
-                    values = c("0" = used_colors[1], "1" = used_colors[2]), 
+                    values = c("0" = used_colors[1], 
+                               "1" = used_colors[2]), 
                     labels = c("No", "Yes")) +
-  scale_y_continuous(limits = c(0, .5)) +
-  scale_x_continuous(limits = c(-3, 3), breaks = breaks) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[1,3]), color = used_colors[1]) +
-  geom_vline(linetype="dashed", xintercept  = as.numeric(mean.score[2,3]), color = used_colors[2]) +
-  theme(axis.text.x = element_text(angle = angle, hjust = 1))
+  scale_y_continuous(limits = c(-3, 3), breaks = breaks)+
+  scale_x_discrete(labels = c("No", "Yes")) + 
+  geom_jitter(width = jitter_width, size = jitter_size)
 
 # Are they normally distributed ?
 # Shapiro-Wilk normality test for Not Used
@@ -499,25 +528,17 @@ shapiro.SS.Used <- with(df.train, shapiro.test(SS[Used == "1"]))
 # Mann-Whitney-Wilcoxon test:
 wilcox.SS <- with(df.train, wilcox.test(SS[Used == "0"], SS[Used == "1"]))
 
-#     h. Personality plot ####
-plot.density.personality <- 
-  grid.arrange(plot.density.Nscore, plot.density.Escore, plot.density.Oscore,
-             plot.density.Ascore, plot.density.Cscore, plot.density.Imp, plot.density.SS,
-             layout_matrix = rbind(c(1, 1, 2, 2, 3, 3), 
-                                   c(4, 4, 5, 5, 6, 6), 
-                                   c(7, 7, 7, NA, NA, NA)),
-             top = "Personality test score distribution",
-             left = "Density")
-
-# Summary table for t-tests/Wilcox
+#     Summary table for t-tests/Wilcox (feature means) ####
 table.indep <- 
-  tibble(Trait = c("Neuroticism", "Extraversion", "Openness to experience", 
+  tibble(Feature = c("Neuroticism", "Extraversion (means)", "Extraversion (variances)","Openness to experience", 
                    "Agreeableness", "Conscientiousness", "Impulsivity", 
                    "Sensation-seeking"),
-         p.value = c(sprintf("%0.3f", wilcox.Nscore$p.value), sprintf("%0.3f", t_test.Escore$p.value), sprintf("%0.3f", wilcox.Oscore$p.value), 
+         p.value = c(sprintf("%0.3f", wilcox.Nscore$p.value), 
+                     sprintf("%0.3f", t_test.Escore$p.value), sprintf("%0.3f", t_test.var.Escore$p.value),
+                     sprintf("%0.3f", wilcox.Oscore$p.value), 
                      sprintf("%0.3f", t_test.Ascore$p.value), sprintf("%0.3f", wilcox.Cscore$p.value), sprintf("%0.3f", wilcox.Impulsive$p.value), 
                      sprintf("%0.3f", wilcox.SS$p.value)),
-         User_NonUser = c("Different", "Identical", "Different", "Different", 
+         User_NonUser = c("Different", "Identical", "Identical", "Different", "Different", 
                         "Different", "Different", "Different"))
 
 # C: Modeling ####
@@ -525,7 +546,7 @@ table.indep <-
 imp_text_size <-7
 
 #   1. Pre-processing ####
-#     a. Correlation
+#     a. Correlation ####
 #       Correlation plot utilities ####
 # Get lower triangle of the correlation matrix
 get_lower_tri<-function(cormat){
@@ -802,8 +823,8 @@ grid.gbm <- expand.grid(n.trees = seq(190, 210, 1),
                         n.minobsinnode = 8,
                         interaction.depth = 3)
 set.seed(5)
-print("Running GBM")
-invisible(capture.output( # Prevent caret::train gbm to print to stdout
+
+invisible(capture.output( # Prevent caret::train gbm to print to stdout (trace=FALSE non-op)
   model.gbm <- train(df.train[,predictors],
                      as.factor(df.train[,outcomeName]),
                      method = 'gbm',
@@ -836,7 +857,7 @@ CM.nnet.base <- confusionMatrix(predict(model.nnet.base, newdata = df.test),
 grid.nnet <- expand.grid(size = c(1:6),
                          decay = seq(0.2, 0.3, 0.01))
 set.seed(125)
-invisible(capture.output( # Prevent caret::train nnet to print to stdout
+invisible(capture.output( # Prevent caret::train nnet to print to stdout  (trace=FALSE non-op)
   model.nnet <- train(df.train[,predictors],
                       as.factor(df.train[,outcomeName]),
                       method = 'nnet',
